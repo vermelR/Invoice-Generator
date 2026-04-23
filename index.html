@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RND Entertainment — Invoice Generator</title>
+<style>
+  /* ── RESET & BASE ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f0f0; color: #222; }
+
+  /* ── APP SHELL ── */
+  #app { display: flex; gap: 0; min-height: 100vh; }
+
+  /* ── SIDEBAR (editor) ── */
+  #sidebar {
+    width: 420px; min-width: 420px; background: #1a1a1a; color: #eee;
+    padding: 24px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px;
+  }
+  #sidebar h1 { font-size: 18px; color: #fff; letter-spacing: 1px; }
+  #sidebar h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 2px; color: #e85d26; margin-bottom: 6px; }
+
+  .field-group { display: flex; flex-direction: column; gap: 10px; }
+  .field-row { display: flex; gap: 8px; }
+  .field-row > * { flex: 1; }
+
+  label { font-size: 11px; color: #aaa; display: block; margin-bottom: 3px; }
+  input[type="text"], input[type="number"], textarea, select {
+    width: 100%; background: #2a2a2a; border: 1px solid #3a3a3a; color: #eee;
+    padding: 7px 10px; border-radius: 4px; font-size: 13px; outline: none;
+    transition: border-color .2s;
+  }
+  input:focus, textarea:focus, select:focus { border-color: #e85d26; }
+  textarea { resize: vertical; min-height: 60px; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer;
+    font-size: 12px; font-weight: 600; transition: opacity .2s;
+  }
+  .btn:hover { opacity: .85; }
+  .btn-orange { background: #e85d26; color: #fff; }
+  .btn-blue   { background: #3b7dd8; color: #fff; }
+  .btn-dark   { background: #333; color: #ccc; border: 1px solid #444; }
+  .btn-red    { background: #c0392b; color: #fff; }
+  .btn-green  { background: #27ae60; color: #fff; }
+  .btn-sm     { padding: 4px 10px; font-size: 11px; }
+  .btn-full   { width: 100%; text-align: center; }
+
+  .divider { border: none; border-top: 1px solid #333; margin: 4px 0; }
+
+  /* ── EVENT CARDS ── */
+  .event-card {
+    background: #222; border: 1px solid #333; border-radius: 6px; padding: 12px;
+    display: flex; flex-direction: column; gap: 10px;
+    transition: opacity .15s;
+  }
+  .event-card.dragging { opacity: .35; }
+  .event-card.drag-over { border-color: #e85d26; box-shadow: 0 0 0 2px #e85d2644; }
+  .drag-handle {
+    cursor: grab; color: #555; font-size: 16px; line-height: 1;
+    padding: 0 2px; user-select: none; flex-shrink: 0;
+  }
+  .drag-handle:active { cursor: grabbing; }
+  .event-header { display: flex; align-items: center; gap: 8px; }
+  .event-header input { flex: 1; font-weight: 700; color: #e85d26; }
+  .event-meta { display: flex; gap: 6px; align-items: center; }
+  .event-meta input[type="number"] { width: 90px; }
+  .comp-toggle {
+    display: flex; align-items: center; gap: 4px; font-size: 11px; color: #aaa; white-space: nowrap;
+  }
+  .comp-toggle input[type="checkbox"] { accent-color: #e85d26; }
+
+  /* item rows (level 1 under event) */
+  .sub-items { display: flex; flex-direction: column; gap: 8px; padding-left: 12px; border-left: 2px solid #333; }
+  .sub-item-wrap { display: flex; flex-direction: column; gap: 4px; }
+  .sub-item-row { display: flex; gap: 6px; align-items: center; }
+  .sub-item-row input[type="text"] { flex: 2; font-size: 12px; }
+  .sub-item-row input[type="number"] { width: 70px; font-size: 12px; }
+  .sub-item-row .qty-input { width: 54px; }
+
+  /* detail rows (level 2 — disclosure, no price) */
+  .detail-items { display: flex; flex-direction: column; gap: 4px; padding-left: 12px; border-left: 2px solid #444; margin-top: 2px; }
+  .detail-item-row { display: flex; gap: 6px; align-items: center; }
+  .detail-item-row input[type="text"] { flex: 2; font-size: 11px; }
+  .detail-item-row .qty-input { width: 50px; font-size: 11px; }
+
+  /* ── DISCOUNT CARDS ── */
+  .discount-card {
+    background: #222; border: 1px solid #333; border-radius: 6px; padding: 10px;
+    display: flex; gap: 8px; align-items: center;
+  }
+  .discount-card input[type="text"] { flex: 2; }
+  .discount-card input[type="number"] { width: 90px; }
+
+  /* ── PREVIEW PANE ── */
+  #preview-pane {
+    flex: 1; overflow-y: auto; padding: 24px; background: #e0e0e0;
+    display: flex; justify-content: center;
+  }
+
+  /* ── INVOICE (print target) ── */
+  #invoice {
+    width: 816px; background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,.2);
+    font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #222;
+  }
+
+  /* header */
+  .inv-header {
+    background: #111; color: #fff; padding: 32px 40px 28px;
+    display: flex; justify-content: space-between; align-items: center;
+    position: relative;
+  }
+  .inv-header::after {
+    content: ''; position: absolute;
+    left: 80%; top: 20px; bottom: 20px;
+    width: 1px; background: rgba(200, 200, 200, 0.18);
+  }
+  .inv-header-left { display: flex; flex-direction: column; gap: 6px; }
+  .inv-company { font-size: 13px; color: #ccc; letter-spacing: 1px; }
+  .inv-title { font-size: 42px; font-weight: 300; letter-spacing: -1px; }
+  .inv-logo {
+    font-family: Impact, 'Arial Black', sans-serif;
+    font-size: 52px; letter-spacing: -2px;
+    color: #fff;
+    text-shadow: 3px 0 0 #e85d26, -3px 0 0 #3b7dd8;
+    padding: 4px 14px;
+    transform: skewX(-8deg); display: inline-block;
+    height: 80px; display: flex; align-items: center; justify-content: center;
+  }
+  .inv-logo img { width: auto; height: 100%; max-width: 200px; object-fit: contain; display: block; }
+
+  /* meta row */
+  .inv-meta {
+    display: flex; gap: 0; padding: 14px 40px; border-bottom: 2px solid #ddd;
+    font-size: 12.5px;
+  }
+  .inv-meta-item { flex: 1; }
+  .inv-meta-item:not(:last-child) { border-right: 1px solid #ddd; padding-right: 20px; margin-right: 20px; }
+
+  /* bill-to row */
+  .inv-parties {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    padding: 20px 40px 24px; border-bottom: 1px solid #ddd;
+  }
+  .inv-party-label { font-weight: 700; font-size: 12px; margin-bottom: 6px; }
+  .inv-party-val { font-size: 12.5px; line-height: 1.6; color: #333; }
+
+  /* table */
+  .inv-table { width: 100%; border-collapse: collapse; }
+  .inv-table thead { background: #111; color: #fff; }
+  .inv-table thead th {
+    padding: 10px 16px; text-align: left; font-size: 12px;
+    letter-spacing: .5px; font-weight: 600;
+  }
+  .inv-table thead th:not(:first-child) { text-align: right; }
+
+  /* event row (level 0) */
+  tr.row-event td {
+    padding: 12px 16px 8px; font-weight: 700; font-size: 13px;
+    color: #e85d26; border-bottom: 1.5px solid #3b7dd8;
+  }
+  tr.row-event td:not(:first-child) { text-align: right; color: #e85d26; }
+
+  /* package row (level 1) */
+  tr.row-pkg td {
+    padding: 8px 16px 8px 32px; font-weight: 600; font-size: 12.5px;
+    color: #3b7dd8; border-bottom: 1px solid #eee;
+  }
+  tr.row-pkg td:not(:first-child) { text-align: right; color: #3b7dd8; }
+
+  /* equipment row (level 2) */
+  tr.row-equip td {
+    padding: 7px 16px 7px 52px; font-size: 12px;
+    color: #444; border-bottom: 1px solid #f5f5f5;
+  }
+  tr.row-equip td:not(:first-child) { text-align: right; }
+
+  /* discount row */
+  tr.row-discount td {
+    padding: 8px 16px 8px 32px; font-size: 12.5px;
+    color: #c0392b; border-bottom: 1px solid #eee;
+  }
+  tr.row-discount td:not(:first-child) { text-align: right; color: #c0392b; }
+
+  /* discount parent row */
+  tr.row-discount-group td {
+    padding: 12px 16px 8px; font-weight: 700; font-size: 13px;
+    color: #e85d26; border-bottom: 1.5px solid #3b7dd8;
+  }
+  tr.row-discount-group td:not(:first-child) { text-align: right; color: #e85d26; }
+
+  /* hotel row */
+  tr.row-hotel td {
+    padding: 10px 16px; font-size: 11.5px; color: #555; line-height: 1.55;
+    border-bottom: 1px solid #eee;
+  }
+  tr.row-hotel td.hotel-label {
+    font-weight: 700; color: #e85d26; font-size: 13px; vertical-align: top;
+  }
+
+  /* amount due */
+  .inv-total {
+    display: flex; justify-content: flex-end; align-items: center;
+    padding: 0 0 0 0; background: #fff;
+  }
+  .inv-total-inner {
+    display: flex; align-items: center; background: #111;
+    margin: 0; padding: 14px 40px;
+  }
+  .inv-total-label { color: #fff; font-weight: 700; font-size: 14px; margin-right: 24px; }
+  .inv-total-val { color: #fff; font-size: 18px; font-weight: 700; min-width: 80px; text-align: right; }
+
+  /* footer */
+  .inv-footer {
+    display: flex; padding: 20px 40px; border-top: 2px solid #ddd; gap: 20px;
+  }
+  .inv-footer-logo {
+    background: #111; color: #fff; padding: 12px 16px; font-weight: 700;
+    font-size: 13px; min-width: 120px; line-height: 1.5;
+  }
+  .inv-footer-info { font-size: 12px; color: #444; line-height: 1.8; display: flex; flex-direction: column; justify-content: center; }
+  .inv-footer-info a { color: #3b7dd8; text-decoration: none; }
+
+  /* ── STATUS BAR ── */
+  #status-bar {
+    position: sticky; bottom: 0; background: #111; padding: 10px 20px;
+    display: flex; gap: 10px; align-items: center; border-top: 1px solid #333;
+  }
+
+  /* ── PRINT ── */
+  @media print {
+    body { background: #fff; }
+    #sidebar, #status-bar { display: none !important; }
+    #preview-pane { padding: 0; background: #fff; }
+    #invoice { box-shadow: none; width: 100%; }
+  }
+
+  /* ── MISC HELPERS ── */
+  .tag-draft {
+    display: inline-block; background: #e85d26; color: #fff;
+    font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 3px;
+    letter-spacing: 1px; margin-left: 8px; vertical-align: middle;
+  }
+  .notes-section { margin-top: 16px; }
+
+  /* ── MODE SELECTOR ── */
+  #mode-select { width: auto; padding: 5px 10px; font-size: 12px; background: #2a2a2a; border: 1px solid #444; color: #eee; border-radius: 4px; outline: none; cursor: pointer; }
+
+  /* ── EXPENSE ROWS (sidebar) ── */
+  .expense-row { display: flex; gap: 6px; align-items: center; background: #222; border: 1px solid #333; border-radius: 6px; padding: 8px 10px; }
+  .expense-row input[type="text"] { flex: 2; font-size: 12px; }
+  .expense-row select { flex: 1.5; font-size: 12px; }
+  .expense-row input[type="number"] { width: 80px; font-size: 12px; }
+
+  /* ── EXPENSE SUMMARY (preview) ── */
+  #exp-summary { width: 720px; background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,.2); font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #222; }
+  .exp-header { background: #111; color: #fff; padding: 28px 40px; display: flex; justify-content: space-between; align-items: center; }
+  .exp-title { font-size: 36px; font-weight: 300; letter-spacing: -1px; }
+  .exp-table { width: 100%; border-collapse: collapse; }
+  .exp-table thead { background: #111; color: #fff; }
+  .exp-table thead th { padding: 10px 16px; text-align: left; font-size: 12px; letter-spacing: .5px; font-weight: 600; }
+  .exp-table thead th:last-child { text-align: right; }
+  tr.row-cat td { padding: 10px 16px 6px; font-weight: 700; font-size: 12px; color: #e85d26; border-bottom: 1.5px solid #3b7dd8; text-transform: uppercase; letter-spacing: .5px; }
+  tr.row-cat td:last-child { text-align: right; }
+  tr.row-exp td { padding: 7px 16px 7px 32px; font-size: 12.5px; color: #333; border-bottom: 1px solid #f0f0f0; }
+  tr.row-exp td:last-child { text-align: right; }
+  .exp-bottom-row { display: flex; justify-content: space-between; align-items: center; padding: 13px 40px; border-top: 1px solid #eee; font-size: 13px; }
+  .exp-bottom-row.row-total-exp { font-weight: 700; color: #c0392b; }
+  .exp-bottom-row.row-revenue { font-weight: 700; color: #27ae60; }
+  .exp-bottom-row.row-profit { background: #111; color: #fff; font-weight: 700; font-size: 15px; }
+  .exp-bottom-row.row-loss { background: #c0392b; color: #fff; font-weight: 700; font-size: 15px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ══════════════════════ SIDEBAR ══════════════════════ -->
+<div id="sidebar">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <h1 style="flex:1;margin:0;">RND Invoice</h1>
+    <select id="mode-select" onchange="switchMode(this.value)">
+      <option value="invoice">Invoice</option>
+      <option value="expenses">Expenses</option>
+    </select>
+  </div>
+
+  <div id="invoice-sections" style="display:contents;">
+
+  <button class="btn btn-orange btn-full" onclick="newInvoice()">+ New Invoice</button>
+
+  <!-- Your Business -->
+  <div>
+    <h2>Your Business</h2>
+    <div class="field-group">
+      <label>Company Name</label>
+      <input type="text" id="biz-name" value="RND Entertainment">
+      <div class="field-row" style="margin-top:8px;">
+        <div>
+          <label>Logo Text</label>
+          <input type="text" id="biz-logo-text" value="RND">
+        </div>
+        <div>
+          <label>Logo Image</label>
+          <input type="file" id="biz-logo-img" accept="image/*" style="font-size:11px;color:#ccc;background:#1a1a1a;border:1px solid #333;border-radius:6px;padding:4px;width:100%;box-sizing:border-box;">
+          <button id="biz-logo-clear" onclick="clearLogoImg()" style="display:none;margin-top:4px;font-size:10px;color:#aaa;background:transparent;border:none;cursor:pointer;padding:0;">✕ Remove image</button>
+        </div>
+      </div>
+      <label style="margin-top:8px;display:block;">Address</label>
+      <textarea id="biz-address" rows="2">1120 Staghorn Dr., North Brunswick, NJ 08902</textarea>
+      <div class="field-row" style="margin-top:8px;">
+        <div>
+          <label>Phone</label>
+          <input type="text" id="biz-phone" value="+1 732-535-2244">
+        </div>
+        <div>
+          <label>Email</label>
+          <input type="text" id="biz-email" value="officialdjrnd@gmail.com">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Meta -->
+  <div>
+    <h2>Invoice Details</h2>
+    <div class="field-group">
+      <div class="field-row">
+        <div>
+          <label>Invoice #</label>
+          <input type="number" id="inv-num" value="1016">
+        </div>
+        <div>
+          <label>Status</label>
+          <select id="inv-status">
+            <option value="Draft">Draft</option>
+            <option value="Invoice">Invoice</option>
+            <option value="Final">Final</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div>
+          <label>Issued On</label>
+          <input type="text" id="inv-issued" placeholder="April 21st, 2026">
+        </div>
+        <div>
+          <label>Due Date</label>
+          <input type="text" id="inv-due" placeholder="May 25th, 2026">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bill To -->
+  <div>
+    <h2>Bill To</h2>
+    <textarea id="bill-to" rows="3" placeholder="Client name&#10;Address&#10;Phone / Email"></textarea>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Events -->
+  <div>
+    <h2>Events / Line Items</h2>
+    <div id="events-container" style="display:flex;flex-direction:column;gap:12px;"></div>
+    <button class="btn btn-orange btn-full" style="margin-top:10px;" onclick="addEvent()">+ Add Event</button>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Discounts -->
+  <div>
+    <h2>Discounts</h2>
+    <div id="discounts-container" style="display:flex;flex-direction:column;gap:6px;"></div>
+    <button class="btn btn-dark btn-full btn-sm" style="margin-top:8px;" onclick="addDiscount()">+ Add Discount</button>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Hotel Clause -->
+  <div>
+    <h2>Hotel &amp; Parking Clause</h2>
+    <div class="comp-toggle" style="margin-bottom:8px;">
+      <input type="checkbox" id="hotel-enabled" checked onchange="render()">
+      <label for="hotel-enabled" style="color:#eee;font-size:12px;">Include hotel clause</label>
+    </div>
+    <textarea id="hotel-text" rows="4">Client to provide 1 room with 2 beds for night of events as well as one day before and after at the performance venue. If venue does not have a hotel onsite, accommodations must be made within 3 miles of the venue and approved by RND Entertainment. For any contracts containing larger setups, additional rooms may be required for additional production team members. If parking is not available onsite for oversized vehicles, reimbursements are required.</textarea>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Notes -->
+  <div>
+    <h2>Additional Notes</h2>
+    <textarea id="notes" rows="3" placeholder="Payment methods, terms, etc. (optional)"></textarea>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Actions -->
+  <div id="status-bar" style="position:static;flex-direction:column;gap:8px;background:transparent;border:none;padding:0;">
+    <button class="btn btn-green btn-full" onclick="window.print()">Print / Save as PDF</button>
+    <button class="btn btn-dark btn-full" onclick="saveData()">Save Draft (browser)</button>
+    <button class="btn btn-red btn-full btn-sm" onclick="clearAll()">Clear All</button>
+  </div>
+
+  </div><!-- #invoice-sections -->
+
+  <!-- ── EXPENSE SECTIONS ── -->
+  <div id="expense-sections" style="display:none;flex-direction:column;gap:14px;">
+    <div>
+      <h2>Gig / Event</h2>
+      <input type="text" id="exp-event-label" placeholder="e.g. Singh Wedding — May 25" oninput="onExpChange()">
+    </div>
+    <hr class="divider">
+    <div>
+      <h2>Expenses</h2>
+      <div id="exp-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+      <button class="btn btn-orange btn-full" style="margin-top:10px;" onclick="addExpense()">+ Add Expense</button>
+    </div>
+    <hr class="divider">
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <button class="btn btn-green btn-full" onclick="window.print()">Print / Save as PDF</button>
+      <button class="btn btn-dark btn-full" onclick="saveData()">Save Draft (browser)</button>
+    </div>
+  </div>
+
+</div><!-- #sidebar -->
+
+<!-- ══════════════════════ PREVIEW ══════════════════════ -->
+<div id="preview-pane">
+  <div id="invoice"><!-- rendered by JS --></div>
+  <div id="exp-summary" style="display:none;"><!-- rendered by JS --></div>
+</div>
+
+</div><!-- #app -->
+
+<script>
+// ─── DATA MODEL ───────────────────────────────────────────────────────────────
+let state = {
+  num: 1016, status: 'Draft',
+  issued: '', due: '',
+  billTo: '',
+  events: [],
+  discounts: [],
+  hotelEnabled: true,
+  hotelText: document.getElementById('hotel-text').value,
+  notes: '',
+  bizName:     document.getElementById('biz-name').value,
+  bizLogoText: document.getElementById('biz-logo-text').value,
+  bizLogoImg:  '',
+  bizAddress:  document.getElementById('biz-address').value,
+  bizPhone:    document.getElementById('biz-phone').value,
+  bizEmail:    document.getElementById('biz-email').value,
+};
+
+// ─── ORDINAL SUFFIX ───────────────────────────────────────────────────────────
+function ordinal(n) {
+  const s = ['th','st','nd','rd'], v = n % 100;
+  return n + (s[(v-20)%10] || s[v] || s[0]);
+}
+
+// ─── TODAY DATE ───────────────────────────────────────────────────────────────
+function todayFormatted() {
+  const d = new Date();
+  const months = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  return `${months[d.getMonth()]} ${ordinal(d.getDate())}, ${d.getFullYear()}`;
+}
+
+// ─── FORMAT MONEY ─────────────────────────────────────────────────────────────
+function fmt(v) {
+  if (v === null || v === undefined || v === '') return '';
+  const n = parseFloat(v);
+  if (isNaN(n)) return '';
+  return (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 2});
+}
+
+// ─── EVENT / ITEM / DETAIL MANAGEMENT ────────────────────────────────────────
+// Events are headers (no price). Items are priced. Details are disclosure (no price).
+let eventIdCounter = 0;
+function newEvent()  { return { id: eventIdCounter++, name: '', items: [] }; }
+function newItem()   { return { name: '', qty: 1, price: '', comp: false, details: [] }; }
+function newDetail() { return { name: '', qty: 1 }; }
+
+function addEvent() { state.events.push(newEvent()); renderSidebar(); render(); }
+function removeEvent(id) { state.events = state.events.filter(e => e.id !== id); renderSidebar(); render(); }
+function addItem(eventId) {
+  const ev = state.events.find(e => e.id === eventId);
+  if (ev) { ev.items.push(newItem()); renderSidebar(); render(); }
+}
+function removeItem(eventId, i) {
+  const ev = state.events.find(e => e.id === eventId);
+  if (ev) { ev.items.splice(i, 1); renderSidebar(); render(); }
+}
+function addDetail(eventId, itemIdx) {
+  const ev = state.events.find(e => e.id === eventId);
+  if (ev && ev.items[itemIdx]) { ev.items[itemIdx].details.push(newDetail()); renderSidebar(); render(); }
+}
+function removeDetail(eventId, itemIdx, detailIdx) {
+  const ev = state.events.find(e => e.id === eventId);
+  if (ev && ev.items[itemIdx]) { ev.items[itemIdx].details.splice(detailIdx, 1); renderSidebar(); render(); }
+}
+
+// ─── DISCOUNT MANAGEMENT ──────────────────────────────────────────────────────
+let discountIdCounter = 0;
+function addDiscount() {
+  state.discounts.push({ id: discountIdCounter++, name: '', amount: '' });
+  renderSidebar();
+  render();
+}
+function removeDiscount(id) {
+  state.discounts = state.discounts.filter(d => d.id !== id);
+  renderSidebar();
+  render();
+}
+
+// ─── READ SIDEBAR INPUTS ──────────────────────────────────────────────────────
+function readState() {
+  state.num    = document.getElementById('inv-num').value;
+  state.status = document.getElementById('inv-status').value;
+  state.issued = document.getElementById('inv-issued').value;
+  state.due    = document.getElementById('inv-due').value;
+  state.billTo = document.getElementById('bill-to').value;
+  state.hotelEnabled = document.getElementById('hotel-enabled').checked;
+  state.hotelText = document.getElementById('hotel-text').value;
+  state.notes  = document.getElementById('notes').value;
+  state.bizName     = document.getElementById('biz-name').value;
+  state.bizLogoText = document.getElementById('biz-logo-text').value;
+  state.bizAddress  = document.getElementById('biz-address').value;
+  state.bizPhone    = document.getElementById('biz-phone').value;
+  state.bizEmail    = document.getElementById('biz-email').value;
+
+  state.events.forEach(ev => {
+    const nameEl = document.getElementById(`ev-name-${ev.id}`);
+    if (nameEl) ev.name = nameEl.value;
+
+    ev.items.forEach((item, i) => {
+      const iNameEl  = document.getElementById(`it-name-${ev.id}-${i}`);
+      const iQtyEl   = document.getElementById(`it-qty-${ev.id}-${i}`);
+      const iPriceEl = document.getElementById(`it-price-${ev.id}-${i}`);
+      const iCompEl  = document.getElementById(`it-comp-${ev.id}-${i}`);
+      if (iNameEl)  item.name  = iNameEl.value;
+      if (iQtyEl)   item.qty   = iQtyEl.value;
+      if (iPriceEl) item.price = iPriceEl.value;
+      if (iCompEl)  item.comp  = iCompEl.checked;
+
+      item.details.forEach((det, j) => {
+        const dNameEl = document.getElementById(`dt-name-${ev.id}-${i}-${j}`);
+        const dQtyEl  = document.getElementById(`dt-qty-${ev.id}-${i}-${j}`);
+        if (dNameEl) det.name = dNameEl.value;
+        if (dQtyEl)  det.qty  = dQtyEl.value;
+      });
+    });
+  });
+
+  state.discounts.forEach(d => {
+    const nameEl   = document.getElementById(`disc-name-${d.id}`);
+    const amountEl = document.getElementById(`disc-amount-${d.id}`);
+    if (nameEl)   d.name   = nameEl.value;
+    if (amountEl) d.amount = amountEl.value;
+  });
+}
+
+// ─── DRAG-AND-DROP REORDER ────────────────────────────────────────────────────
+let dragSrcId = null;
+
+function onDragStart(e, id) {
+  dragSrcId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  e.currentTarget.classList.add('dragging');
+}
+function onDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  document.querySelectorAll('.event-card').forEach(c => c.classList.remove('drag-over'));
+}
+function onDragOver(e, id) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.event-card').forEach(c => c.classList.remove('drag-over'));
+  if (id !== dragSrcId) e.currentTarget.classList.add('drag-over');
+}
+function onDrop(e, id) {
+  e.preventDefault();
+  if (dragSrcId === null || dragSrcId === id) return;
+  readState();
+  const from = state.events.findIndex(ev => ev.id === dragSrcId);
+  const to   = state.events.findIndex(ev => ev.id === id);
+  const [moved] = state.events.splice(from, 1);
+  state.events.splice(to, 0, moved);
+  dragSrcId = null;
+  renderSidebar();
+  render();
+}
+
+// ─── RENDER SIDEBAR ───────────────────────────────────────────────────────────
+function renderSidebar() {
+  const ec = document.getElementById('events-container');
+  ec.innerHTML = '';
+  state.events.forEach(ev => {
+    const card = document.createElement('div');
+    card.className = 'event-card';
+    card.draggable = true;
+    card.addEventListener('dragstart', e => onDragStart(e, ev.id));
+    card.addEventListener('dragend',   e => onDragEnd(e));
+    card.addEventListener('dragover',  e => onDragOver(e, ev.id));
+    card.addEventListener('drop',      e => onDrop(e, ev.id));
+    card.innerHTML = `
+      <div class="event-header">
+        <span class="drag-handle" title="Drag to reorder">⠿</span>
+        <input type="text" id="ev-name-${ev.id}" value="${esc(ev.name)}" placeholder="Event name (e.g. Sangeet)" oninput="onChange()">
+        <button class="btn btn-red btn-sm" onclick="removeEvent(${ev.id})">✕</button>
+      </div>
+      <div class="sub-items">
+        ${ev.items.map((item, i) => `
+          <div class="sub-item-wrap">
+            <div class="sub-item-row">
+              <input type="text" id="it-name-${ev.id}-${i}" value="${esc(item.name)}" placeholder="Package / item" oninput="onChange()">
+              <input type="number" class="qty-input" id="it-qty-${ev.id}-${i}" value="${esc(item.qty)}" min="1" oninput="onChange()" title="Qty">
+              <input type="number" id="it-price-${ev.id}-${i}" value="${esc(item.price)}" placeholder="Price" oninput="onChange()" ${item.comp ? 'disabled' : ''}>
+              <label class="comp-toggle">
+                <input type="checkbox" id="it-comp-${ev.id}-${i}" ${item.comp ? 'checked' : ''} onchange="onChange()"> COMP
+              </label>
+              <button class="btn btn-red btn-sm" onclick="removeItem(${ev.id}, ${i})">✕</button>
+            </div>
+            <div class="detail-items">
+              ${item.details.map((det, j) => `
+                <div class="detail-item-row">
+                  <input type="text" id="dt-name-${ev.id}-${i}-${j}" value="${esc(det.name)}" placeholder="Included item" oninput="onChange()">
+                  <input type="number" class="qty-input" id="dt-qty-${ev.id}-${i}-${j}" value="${esc(det.qty)}" min="1" oninput="onChange()" title="Qty">
+                  <button class="btn btn-red btn-sm" onclick="removeDetail(${ev.id}, ${i}, ${j})">✕</button>
+                </div>
+              `).join('')}
+              <button class="btn btn-dark btn-sm" style="margin-top:2px;" onclick="addDetail(${ev.id}, ${i})">+ Detail</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <button class="btn btn-dark btn-sm" onclick="addItem(${ev.id})">+ Add Item</button>
+    `;
+    ec.appendChild(card);
+  });
+
+  // Discounts
+  const dc = document.getElementById('discounts-container');
+  dc.innerHTML = '';
+  state.discounts.forEach(d => {
+    const row = document.createElement('div');
+    row.className = 'discount-card';
+    row.innerHTML = `
+      <input type="text" id="disc-name-${d.id}" value="${esc(d.name)}" placeholder="Discount label">
+      <input type="number" id="disc-amount-${d.id}" value="${esc(d.amount)}" placeholder="Amount (e.g. 1250)">
+      <button class="btn btn-red btn-sm" onclick="removeDiscount(${d.id})">✕</button>
+    `;
+    dc.appendChild(row);
+  });
+}
+
+function esc(v) { return String(v ?? '').replace(/"/g, '&quot;'); }
+
+// ─── COMPUTE TOTAL ────────────────────────────────────────────────────────────
+// Only items are priced — event totals auto-sum from their items, no double-counting.
+function computeTotal() {
+  let total = 0;
+  state.events.forEach(ev => {
+    ev.items.forEach(item => {
+      if (!item.comp && item.price !== '') {
+        total += parseFloat(item.price) * (parseFloat(item.qty) || 1);
+      }
+    });
+  });
+  state.discounts.forEach(d => {
+    if (d.amount !== '') total -= Math.abs(parseFloat(d.amount));
+  });
+  return total;
+}
+
+// ─── RENDER INVOICE PREVIEW ───────────────────────────────────────────────────
+function render() {
+  const total = computeTotal();
+  const billLines = state.billTo ? state.billTo.split('\n').map(l => `<div>${l}</div>`).join('') : '<div>N/A</div>';
+  const notesHtml = state.notes ? `<div style="padding:16px 40px 0;font-size:12px;color:#555;">${state.notes.replace(/\n/g,'<br>')}</div>` : '';
+
+  // Build table rows
+  let rows = '';
+  state.events.forEach(ev => {
+    if (!ev.name) return;
+
+    // Event total = sum of non-comp items
+    let evSum = 0;
+    let hasPrice = false;
+    let anyNonComp = false;
+    ev.items.forEach(item => {
+      if (!item.comp) {
+        anyNonComp = true;
+        if (item.price !== '') { evSum += parseFloat(item.price) * (parseFloat(item.qty) || 1); hasPrice = true; }
+      }
+    });
+    const evTotalDisplay = ev.items.length === 0 ? '' : (!anyNonComp ? 'COMP' : (hasPrice ? fmt(evSum) : ''));
+
+    rows += `<tr class="row-event">
+      <td colspan="3">${ev.name}</td>
+      <td>${evTotalDisplay}</td>
+    </tr>`;
+
+    ev.items.forEach((item, i) => {
+      if (!item.name) return;
+      const iAmt = (!item.comp && item.price !== '') ? parseFloat(item.price) * (parseFloat(item.qty) || 1) : null;
+      const iPrice = item.comp ? 'COMP' : (item.price !== '' ? fmt(item.price) : '');
+      const iTotal = item.comp ? 'COMP' : (iAmt !== null ? fmt(iAmt) : '');
+      rows += `<tr class="row-pkg">
+        <td>${item.name}</td>
+        <td>${item.qty || 1}</td>
+        <td>${iPrice}</td>
+        <td>${iTotal}</td>
+      </tr>`;
+
+      item.details.forEach(det => {
+        if (!det.name) return;
+        rows += `<tr class="row-equip">
+          <td>${det.name}</td>
+          <td>${det.qty || 1}</td>
+          <td></td>
+          <td></td>
+        </tr>`;
+      });
+    });
+  });
+
+  // Discounts
+  const hasDiscounts = state.discounts.some(d => d.name);
+  if (hasDiscounts) {
+    const discTotal = state.discounts.reduce((s, d) => s - (d.amount ? Math.abs(parseFloat(d.amount)) : 0), 0);
+    rows += `<tr class="row-discount-group">
+      <td>Discounts</td><td>1</td>
+      <td>${fmt(discTotal)}</td>
+      <td>${fmt(discTotal)}</td>
+    </tr>`;
+    state.discounts.forEach(d => {
+      if (!d.name) return;
+      const a = d.amount ? -Math.abs(parseFloat(d.amount)) : '';
+      rows += `<tr class="row-discount">
+        <td>${d.name}</td><td>1</td>
+        <td>${a !== '' ? fmt(a) : ''}</td>
+        <td>${a !== '' ? fmt(a) : ''}</td>
+      </tr>`;
+    });
+  }
+
+  // Hotel
+  if (state.hotelEnabled && state.hotelText) {
+    rows += `<tr class="row-hotel">
+      <td class="hotel-label" colspan="1">Hotel &amp; Parking<br>Accommodations</td>
+      <td colspan="3" style="font-size:11.5px;color:#555;line-height:1.6;">${state.hotelText}</td>
+    </tr>`;
+  }
+
+  const isDraft = state.status === 'Draft';
+  document.getElementById('invoice').innerHTML = `
+    <!-- HEADER -->
+    <div class="inv-header">
+      <div class="inv-header-left">
+        <div class="inv-company">${state.bizName || 'Your Company'}</div>
+        <div class="inv-title">${state.status === 'Invoice' ? 'Invoice' : state.status + ' Invoice'}</div>
+      </div>
+      <div class="inv-logo">${state.bizLogoImg ? `<img src="${state.bizLogoImg}">` : (state.bizLogoText || '')}</div>
+    </div>
+
+    <!-- META ROW -->
+    <div class="inv-meta">
+      <div class="inv-meta-item">Invoice #${state.num || '—'}</div>
+      <div class="inv-meta-item">Issued On: ${state.issued || '—'}</div>
+      <div class="inv-meta-item">Due Date: ${state.due || '—'}</div>
+    </div>
+
+    <!-- PARTIES -->
+    <div class="inv-parties">
+      <div>
+        <div class="inv-party-label">Bill to:</div>
+        <div class="inv-party-val">${billLines}</div>
+      </div>
+      <div>
+        <div class="inv-party-label">Payable to:</div>
+        <div class="inv-party-val">
+          ${state.bizName || 'Your Company'}<br>
+          ${(state.bizAddress || '').replace(/\n/g, '<br>')}
+        </div>
+      </div>
+    </div>
+
+    <!-- LINE ITEMS TABLE -->
+    <table class="inv-table">
+      <thead>
+        <tr>
+          <th style="width:55%">Description</th>
+          <th style="width:12%;text-align:right">Quantity</th>
+          <th style="width:16%;text-align:right">Price</th>
+          <th style="width:17%;text-align:right">Total</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    ${notesHtml}
+
+    <!-- TOTAL -->
+    <div class="inv-total">
+      <div class="inv-total-inner" style="width:100%;justify-content:flex-end;">
+        <span class="inv-total-label">Amount Due:</span>
+        <span class="inv-total-val">${fmt(total)}</span>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="inv-footer">
+      <div class="inv-footer-logo">${state.bizLogoImg ? `<img src="${state.bizLogoImg}" style="max-height:50px;max-width:80px;object-fit:contain;">` : (state.bizName || '').replace(/ /g, '<br>')}</div>
+      <div class="inv-footer-info">
+        <span>${state.bizAddress || ''}</span>
+        <span>${state.bizPhone || ''}</span>
+        <a href="mailto:${state.bizEmail || ''}">${state.bizEmail || ''}</a>
+      </div>
+    </div>
+  `;
+}
+
+// ─── ON CHANGE (debounced) ────────────────────────────────────────────────────
+let renderTimer;
+function onChange() {
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(() => { readState(); render(); }, 80);
+}
+
+// ─── SAVE / LOAD ──────────────────────────────────────────────────────────────
+function saveData() {
+  readState();
+  localStorage.setItem('rnd-invoice', JSON.stringify(state));
+  alert('Draft saved to browser!');
+}
+
+function loadData() {
+  const saved = localStorage.getItem('rnd-invoice');
+  if (!saved) return;
+  try {
+    const s = JSON.parse(saved);
+    // migrate old format: ensure items[] and details[] exist
+    (s.events || []).forEach(ev => {
+      if (!ev.items) ev.items = [];
+      ev.items.forEach(item => { if (!item.details) item.details = []; });
+    });
+    eventIdCounter = s.events.length ? Math.max(...s.events.map(e => e.id + 1)) : 0;
+    discountIdCounter = s.discounts.length ? Math.max(...s.discounts.map(d => d.id + 1)) : 0;
+    state = s;
+    // restore simple inputs
+    document.getElementById('inv-num').value    = state.num;
+    document.getElementById('inv-status').value = state.status;
+    document.getElementById('inv-issued').value = state.issued;
+    document.getElementById('inv-due').value    = state.due;
+    document.getElementById('bill-to').value    = state.billTo;
+    document.getElementById('hotel-enabled').checked = state.hotelEnabled;
+    document.getElementById('hotel-text').value = state.hotelText;
+    document.getElementById('notes').value      = state.notes || '';
+    document.getElementById('biz-name').value     = state.bizName || '';
+    document.getElementById('biz-logo-text').value = state.bizLogoText || '';
+    document.getElementById('biz-address').value  = state.bizAddress || '';
+    document.getElementById('biz-phone').value    = state.bizPhone || '';
+    document.getElementById('biz-email').value    = state.bizEmail || '';
+    document.getElementById('biz-logo-clear').style.display = state.bizLogoImg ? 'block' : 'none';
+    renderSidebar();
+    render();
+  } catch(e) { console.error('Load failed', e); }
+}
+
+function clearAll() {
+  if (!confirm('Clear all data and start fresh?')) return;
+  localStorage.removeItem('rnd-invoice');
+  state = {
+    num: parseInt(state.num||1016)+1, status:'Draft', issued:'', due:'', billTo:'',
+    events:[], discounts:[], hotelEnabled:true,
+    hotelText: document.getElementById('hotel-text').value, notes:'',
+    bizName: state.bizName, bizLogoText: state.bizLogoText, bizLogoImg: state.bizLogoImg,
+    bizAddress: state.bizAddress, bizPhone: state.bizPhone, bizEmail: state.bizEmail,
+  };
+  eventIdCounter = 0; discountIdCounter = 0;
+  document.getElementById('inv-num').value    = state.num;
+  document.getElementById('inv-status').value = 'Draft';
+  document.getElementById('inv-issued').value = '';
+  document.getElementById('inv-due').value    = '';
+  document.getElementById('bill-to').value    = '';
+  document.getElementById('notes').value      = '';
+  renderSidebar();
+  render();
+}
+
+function newInvoice() {
+  if (!confirm('Start a new invoice? Current unsaved data will be lost.')) return;
+  state = {
+    num: parseInt(state.num||1016)+1, status:'Invoice', issued: todayFormatted(), due:'', billTo:'',
+    events:[], discounts:[], hotelEnabled:true,
+    hotelText: document.getElementById('hotel-text').value, notes:'',
+    bizName: state.bizName, bizLogoText: state.bizLogoText, bizLogoImg: state.bizLogoImg,
+    bizAddress: state.bizAddress, bizPhone: state.bizPhone, bizEmail: state.bizEmail,
+  };
+  eventIdCounter = 0; discountIdCounter = 0;
+  document.getElementById('inv-num').value    = state.num;
+  document.getElementById('inv-status').value = 'Invoice';
+  document.getElementById('inv-issued').value = state.issued;
+  document.getElementById('inv-due').value    = '';
+  document.getElementById('bill-to').value    = '';
+  document.getElementById('notes').value      = '';
+  renderSidebar();
+  render();
+}
+
+// ─── WIRE UP STATIC INPUTS ───────────────────────────────────────────────────
+['inv-num','inv-status','inv-issued','inv-due','bill-to','hotel-enabled','hotel-text','notes',
+ 'biz-name','biz-logo-text','biz-address','biz-phone','biz-email']
+  .forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', onChange);
+    if (el) el.addEventListener('change', onChange);
+  });
+
+document.getElementById('biz-logo-img').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    state.bizLogoImg = ev.target.result;
+    document.getElementById('biz-logo-clear').style.display = 'block';
+    render();
+  };
+  reader.readAsDataURL(file);
+});
+
+function clearLogoImg() {
+  state.bizLogoImg = '';
+  document.getElementById('biz-logo-img').value = '';
+  document.getElementById('biz-logo-clear').style.display = 'none';
+  render();
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+(function init() {
+  // Set today's date as default issued date
+  document.getElementById('inv-issued').value = todayFormatted();
+
+  // Load from localStorage if available
+  if (localStorage.getItem('rnd-invoice')) {
+    loadData();
+  } else {
+    // Seed with sample data matching the invoice
+    document.getElementById('inv-num').value = '1016';
+    document.getElementById('inv-issued').value = 'April 21st, 2026';
+    document.getElementById('inv-due').value = 'May 25th, 2026';
+    document.getElementById('bill-to').value = 'N/A';
+
+    const events = [
+      { name:'Mehndi', items:[
+        { name:'Sound Package', qty:1, price:'950', comp:false, details:[
+          {name:'RCF 945', qty:2}, {name:'Wireless Microphone', qty:2},
+          {name:'Facade', qty:2}, {name:'DJ Dev / MC RND', qty:1},
+        ]},
+      ]},
+      { name:'Sangeet (350 People)', items:[
+        { name:'Sound Package', qty:1, price:'1600', comp:false, details:[
+          {name:'RCF 945', qty:2}, {name:'RCF SUB 708', qty:2},
+          {name:'Wireless Microphone', qty:2}, {name:'Facade', qty:1},
+          {name:'DJ Dev / MC RND', qty:1},
+        ]},
+        { name:'LED Dandiya Sticks', qty:1, price:'', comp:false, details:[] },
+      ]},
+      { name:'Baraat', items:[
+        { name:'Baraat Package', qty:1, price:'500', comp:false, details:[
+          {name:'RCF 945', qty:2}, {name:'DJ Dev / MC RND', qty:1},
+          {name:'Wireless Microphone', qty:1}, {name:'Mobile Baraat Vehicle', qty:1},
+        ]},
+      ]},
+      { name:'Ceremony Package', items:[
+        { name:'Ceremony Sound', qty:1, price:'800', comp:false, details:[
+          {name:'Basic Sound Package', qty:1}, {name:'Wireless Microphone', qty:2},
+          {name:'Lapel Microphone', qty:1}, {name:'Facade', qty:2},
+          {name:'Additional Technician', qty:1}, {name:'Lunch Time Speaker', qty:1},
+        ]},
+      ]},
+      { name:'Reception (400 People)', items:[
+        { name:'Upgraded Sound Package', qty:1, price:'2500', comp:false, details:[
+          {name:'RCF 945', qty:4}, {name:'RCF SUB 708', qty:2},
+          {name:'Wireless Microphone', qty:2}, {name:'Facade', qty:1},
+          {name:'DJ Dev / MC RND', qty:1},
+        ]},
+        { name:'LED Wall — Facade', qty:1, price:'1000', comp:false, details:[
+          {name:'LED Panels — Facade', qty:1}, {name:'Technician', qty:1},
+        ]},
+        { name:'Special FX', qty:1, price:'500', comp:false, details:[
+          {name:'CO2 Cannon', qty:1},
+        ]},
+        { name:'Cocktail Setup', qty:1, price:'', comp:true, details:[
+          {name:'Cocktail Speaker', qty:1},
+        ]},
+      ]},
+      { name:'Travel + Labor', items:[
+        { name:'Travel + Labor', qty:1, price:'500', comp:false, details:[] },
+      ]},
+    ];
+    events.forEach(e => { e.id = eventIdCounter++; state.events.push(e); });
+
+    const discounts = [
+      {name:'Friends + Family', amount:'1250'},
+      {name:'Multiple Day', amount:'350'},
+      {name:'Special Effects', amount:'250'},
+    ];
+    discounts.forEach(d => { d.id = discountIdCounter++; state.discounts.push(d); });
+
+    readState();
+    renderSidebar();
+    render();
+  }
+})();
+
+// ─── EXPENSES ─────────────────────────────────────────────────────────────────
+let expenses = [];
+let expIdCounter = 0;
+const EXP_CATS = ['Transportation','Equipment','Labor','Supplies','Venue','Other'];
+
+function newExpense() { return { id: expIdCounter++, name: '', category: 'Other', amount: '' }; }
+
+function addExpense() { expenses.push(newExpense()); renderExpSidebar(); renderExpSummary(); }
+function removeExpense(id) { expenses = expenses.filter(e => e.id !== id); renderExpSidebar(); renderExpSummary(); }
+
+function readExpenses() {
+  expenses.forEach(exp => {
+    const n = document.getElementById(`exp-name-${exp.id}`);
+    const c = document.getElementById(`exp-cat-${exp.id}`);
+    const a = document.getElementById(`exp-amt-${exp.id}`);
+    if (n) exp.name = n.value;
+    if (c) exp.category = c.value;
+    if (a) exp.amount = a.value;
+  });
+}
+
+function renderExpSidebar() {
+  const el = document.getElementById('exp-list');
+  if (!el) return;
+  el.innerHTML = '';
+  expenses.forEach(exp => {
+    const row = document.createElement('div');
+    row.className = 'expense-row';
+    row.innerHTML = `
+      <input type="text" id="exp-name-${exp.id}" value="${esc(exp.name)}" placeholder="Description" oninput="onExpChange()">
+      <select id="exp-cat-${exp.id}" onchange="onExpChange()">
+        ${EXP_CATS.map(c => `<option value="${c}" ${exp.category===c?'selected':''}>${c}</option>`).join('')}
+      </select>
+      <input type="number" id="exp-amt-${exp.id}" value="${esc(exp.amount)}" placeholder="$0" oninput="onExpChange()">
+      <button class="btn btn-red btn-sm" onclick="removeExpense(${exp.id})">✕</button>
+    `;
+    el.appendChild(row);
+  });
+}
+
+function renderExpSummary() {
+  const el = document.getElementById('exp-summary');
+  if (!el) return;
+
+  const revenue = computeTotal();
+  let totalExp = 0;
+
+  const grouped = {};
+  expenses.forEach(exp => {
+    if (!exp.name && !exp.amount) return;
+    if (!grouped[exp.category]) grouped[exp.category] = [];
+    const amt = parseFloat(exp.amount) || 0;
+    grouped[exp.category].push({ name: exp.name || '(unnamed)', amount: amt });
+    totalExp += amt;
+  });
+
+  let rows = '';
+  EXP_CATS.forEach(cat => {
+    if (!grouped[cat]) return;
+    const catTotal = grouped[cat].reduce((s, e) => s + e.amount, 0);
+    rows += `<tr class="row-cat"><td>${cat}</td><td>${fmt(catTotal)}</td></tr>`;
+    grouped[cat].forEach(e => {
+      rows += `<tr class="row-exp"><td>${e.name}</td><td>${fmt(e.amount)}</td></tr>`;
+    });
+  });
+
+  const profit = revenue - totalExp;
+  const marginStr = revenue > 0 ? ` — ${((profit / revenue) * 100).toFixed(0)}% margin` : '';
+  const eventLabel = (document.getElementById('exp-event-label') || {}).value || '';
+
+  el.innerHTML = `
+    <div class="exp-header">
+      <div>
+        <div style="font-size:13px;color:#ccc;letter-spacing:1px;">${state.bizName || 'RND Entertainment'}</div>
+        <div class="exp-title">Expense Report</div>
+        ${eventLabel ? `<div style="color:#aaa;font-size:12px;margin-top:4px;">${eventLabel}</div>` : ''}
+      </div>
+      <div class="inv-logo">${state.bizLogoImg ? `<img src="${state.bizLogoImg}">` : (state.bizLogoText || '')}</div>
+    </div>
+    <table class="exp-table">
+      <thead><tr><th style="width:75%">Description</th><th>Amount</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="2" style="padding:24px 16px;color:#aaa;text-align:center;">No expenses added yet — use the sidebar to add items.</td></tr>'}</tbody>
+    </table>
+    <div>
+      <div class="exp-bottom-row row-total-exp"><span>Total Expenses</span><span>${fmt(totalExp)}</span></div>
+      <div class="exp-bottom-row row-revenue"><span>Invoice Revenue</span><span>${fmt(revenue)}</span></div>
+      <div class="exp-bottom-row ${profit >= 0 ? 'row-profit' : 'row-loss'}">
+        <span>${profit >= 0 ? 'Net Profit' : 'Net Loss'}${marginStr}</span>
+        <span>${fmt(Math.abs(profit))}</span>
+      </div>
+    </div>
+  `;
+}
+
+let expTimer;
+function onExpChange() {
+  clearTimeout(expTimer);
+  expTimer = setTimeout(() => { readExpenses(); renderExpSummary(); }, 80);
+}
+
+function switchMode(mode) {
+  const inv = mode === 'invoice';
+  const invSec = document.getElementById('invoice-sections');
+  const expSec = document.getElementById('expense-sections');
+  invSec.style.display = inv ? 'contents' : 'none';
+  expSec.style.display = inv ? 'none' : 'flex';
+  document.getElementById('invoice').style.display = inv ? '' : 'none';
+  document.getElementById('exp-summary').style.display = inv ? 'none' : '';
+  if (!inv) renderExpSummary();
+}
+</script>
+</body>
+</html>
