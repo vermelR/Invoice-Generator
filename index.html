@@ -772,19 +772,19 @@ function onChange() {
   renderTimer = setTimeout(() => {
     readState();
     render();
-    setSaveIndicator('unsaved');
+    autoSave();
   }, 80);
 }
 
-function setSaveIndicator(state, msg) {
+function setSaveIndicator(st, msg) {
   const el = document.getElementById('save-indicator');
   el.className = '';
-  if (state === 'saved') {
+  if (st === 'saved') {
     el.className = 'saved';
     el.textContent = msg || '✓ Saved';
-  } else if (state === 'unsaved') {
+  } else if (st === 'unsaved') {
     el.className = 'unsaved';
-    el.textContent = 'Unsaved changes';
+    el.textContent = 'Saving…';
   } else {
     el.textContent = '—';
   }
@@ -798,39 +798,44 @@ function setHistory(arr) {
   localStorage.setItem(HISTORY_KEY, JSON.stringify(arr));
 }
 
-function saveToHistory() {
-  readState();
+// Key every invoice by its invoice number. Same # = overwrite. New # = new entry.
+function autoSave() {
+  if (!state.num) return;
   const history = getHistory();
   const total = computeTotal();
   const client = state.billTo ? state.billTo.split('\n')[0].trim() : 'No client';
-  const timestamp = new Date().toISOString();
-  const id = `inv-${Date.now()}`;
+  const invKey = `inv-num-${state.num}`;
 
-  // Check if we're updating an existing entry
-  const existingIdx = currentHistoryId ? history.findIndex(h => h.id === currentHistoryId) : -1;
+  const existingIdx = history.findIndex(h => h.id === invKey);
 
   const entry = {
-    id: existingIdx >= 0 ? currentHistoryId : id,
-    savedAt: timestamp,
+    id: invKey,
+    savedAt: new Date().toISOString(),
     num: state.num,
     status: state.status,
     issued: state.issued,
     due: state.due,
     client: client,
     total: total,
-    data: JSON.parse(JSON.stringify(state)) // deep copy
+    data: JSON.parse(JSON.stringify(state))
   };
 
   if (existingIdx >= 0) {
-    history[existingIdx] = entry;
+    history[existingIdx] = entry;          // overwrite same invoice #
   } else {
-    history.unshift(entry);
-    currentHistoryId = entry.id;
+    history.unshift(entry);               // new invoice # → new entry
   }
 
+  currentHistoryId = invKey;
   setHistory(history);
-  setSaveIndicator('saved', `✓ Saved — Invoice #${state.num}`);
+  setSaveIndicator('saved', `✓ Auto-saved — Invoice #${state.num}`);
   renderHistoryList();
+}
+
+// Keep the manual button as an explicit save (same logic, just user-triggered)
+function saveToHistory() {
+  readState();
+  autoSave();
 }
 
 function saveQuickDraft() {
@@ -853,7 +858,7 @@ function loadFromHistory(id) {
   eventIdCounter = s.events && s.events.length ? Math.max(...s.events.map(e => e.id + 1)) : 0;
   discountIdCounter = s.discounts && s.discounts.length ? Math.max(...s.discounts.map(d => d.id + 1)) : 0;
   state = s;
-  currentHistoryId = id;
+  currentHistoryId = `inv-num-${s.num}`;
 
   // restore inputs
   document.getElementById('inv-num').value     = state.num || '';
