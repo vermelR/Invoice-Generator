@@ -12,6 +12,68 @@
   /* ── APP SHELL ── */
   #app { display: flex; gap: 0; min-height: 100vh; }
 
+  /* ── HISTORY DRAWER ── */
+  #history-drawer {
+    position: fixed; top: 0; left: 0; width: 360px; height: 100vh;
+    background: #0d0d0d; z-index: 200; display: flex; flex-direction: column;
+    transform: translateX(-100%); transition: transform .3s cubic-bezier(.4,0,.2,1);
+    box-shadow: 6px 0 32px rgba(0,0,0,.5);
+  }
+  #history-drawer.open { transform: translateX(0); }
+  .history-header {
+    padding: 20px 18px 16px; background: #111; border-bottom: 1px solid #222;
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  }
+  .history-header h2 { font-size: 14px; color: #fff; letter-spacing: 1px; flex: 1; }
+  .history-header span { font-size: 11px; color: #666; }
+  #history-close {
+    background: #222; border: none; color: #aaa; width: 28px; height: 28px;
+    border-radius: 4px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;
+  }
+  #history-close:hover { background: #333; color: #fff; }
+  #history-search {
+    padding: 10px 18px; background: #111; border-bottom: 1px solid #1a1a1a; flex-shrink: 0;
+  }
+  #history-search input {
+    width: 100%; background: #1e1e1e; border: 1px solid #2a2a2a; color: #eee;
+    padding: 7px 10px; border-radius: 4px; font-size: 12px; outline: none;
+  }
+  #history-search input:focus { border-color: #e85d26; }
+  #history-list { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+  #history-list::-webkit-scrollbar { width: 4px; }
+  #history-list::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+  .history-empty { color: #555; font-size: 12px; text-align: center; padding: 32px 16px; line-height: 1.7; }
+
+  .history-card {
+    background: #161616; border: 1px solid #222; border-radius: 6px; padding: 12px 14px;
+    cursor: pointer; transition: border-color .15s, background .15s; position: relative;
+  }
+  .history-card:hover { background: #1c1c1c; border-color: #3b7dd8; }
+  .history-card.active-invoice { border-color: #e85d26; background: #1a1410; }
+  .hc-top { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .hc-num { font-size: 11px; font-weight: 700; color: #e85d26; }
+  .hc-status { font-size: 10px; padding: 1px 6px; border-radius: 3px; font-weight: 700; letter-spacing: .5px; }
+  .hc-status.Draft   { background: #333; color: #aaa; }
+  .hc-status.Invoice { background: #3b7dd855; color: #3b7dd8; }
+  .hc-status.Final   { background: #27ae6033; color: #27ae60; }
+  .hc-client { font-size: 12px; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 230px; }
+  .hc-meta { font-size: 10px; color: #555; margin-top: 4px; display: flex; gap: 10px; }
+  .hc-amount { font-size: 13px; font-weight: 700; color: #fff; margin-top: 4px; }
+  .hc-actions { display: flex; gap: 6px; margin-top: 10px; }
+  .hc-btn {
+    flex: 1; padding: 5px 0; border: none; border-radius: 4px; font-size: 11px;
+    font-weight: 700; cursor: pointer; transition: opacity .15s;
+  }
+  .hc-btn:hover { opacity: .8; }
+  .hc-btn.load   { background: #3b7dd8; color: #fff; }
+  .hc-btn.delete { background: #2a1a1a; color: #c0392b; border: 1px solid #3a1a1a; }
+
+  /* overlay when drawer open */
+  #history-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 190;
+  }
+  #history-overlay.show { display: block; }
+
   /* ── SIDEBAR (editor) ── */
   #sidebar {
     width: 420px; min-width: 420px; background: #1a1a1a; color: #eee;
@@ -49,11 +111,18 @@
 
   .divider { border: none; border-top: 1px solid #333; margin: 4px 0; }
 
+  /* ── SAVE INDICATOR ── */
+  #save-indicator {
+    font-size: 10px; color: #555; text-align: center; padding: 4px 0;
+    transition: color .3s;
+  }
+  #save-indicator.saved { color: #27ae60; }
+  #save-indicator.unsaved { color: #e85d26; }
+
   /* ── EVENT CARDS ── */
   .event-card {
     background: #222; border: 1px solid #333; border-radius: 6px; padding: 12px;
-    display: flex; flex-direction: column; gap: 10px;
-    transition: opacity .15s;
+    display: flex; flex-direction: column; gap: 10px; transition: opacity .15s;
   }
   .event-card.dragging { opacity: .35; }
   .event-card.drag-over { border-color: #e85d26; box-shadow: 0 0 0 2px #e85d2644; }
@@ -71,7 +140,6 @@
   }
   .comp-toggle input[type="checkbox"] { accent-color: #e85d26; }
 
-  /* item rows (level 1 under event) */
   .sub-items { display: flex; flex-direction: column; gap: 8px; padding-left: 12px; border-left: 2px solid #333; }
   .sub-item-wrap { display: flex; flex-direction: column; gap: 4px; }
   .sub-item-row { display: flex; gap: 6px; align-items: center; }
@@ -79,7 +147,6 @@
   .sub-item-row input[type="number"] { width: 70px; font-size: 12px; }
   .sub-item-row .qty-input { width: 54px; }
 
-  /* detail rows (level 2 — disclosure, no price) */
   .detail-items { display: flex; flex-direction: column; gap: 4px; padding-left: 12px; border-left: 2px solid #444; margin-top: 2px; }
   .detail-item-row { display: flex; gap: 6px; align-items: center; }
   .detail-item-row input[type="text"] { flex: 2; font-size: 11px; }
@@ -99,162 +166,81 @@
     display: flex; justify-content: center;
   }
 
-  /* ── INVOICE (print target) ── */
+  /* ── INVOICE ── */
   #invoice {
     width: 816px; background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,.2);
     font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #222;
   }
 
-  /* header */
   .inv-header {
     background: #111; color: #fff; padding: 32px 40px 28px;
-    display: flex; justify-content: space-between; align-items: center;
-    position: relative;
+    display: flex; justify-content: space-between; align-items: center; position: relative;
   }
   .inv-header::after {
-    content: ''; position: absolute;
-    left: 80%; top: 20px; bottom: 20px;
-    width: 1px; background: rgba(200, 200, 200, 0.18);
+    content: ''; position: absolute; left: 80%; top: 20px; bottom: 20px;
+    width: 1px; background: rgba(200,200,200,.18);
   }
   .inv-header-left { display: flex; flex-direction: column; gap: 6px; }
   .inv-company { font-size: 13px; color: #ccc; letter-spacing: 1px; }
   .inv-title { font-size: 42px; font-weight: 300; letter-spacing: -1px; }
   .inv-logo {
-    font-family: Impact, 'Arial Black', sans-serif;
-    font-size: 52px; letter-spacing: -2px;
-    color: #fff;
-    text-shadow: 3px 0 0 #e85d26, -3px 0 0 #3b7dd8;
-    padding: 4px 14px;
-    transform: skewX(-8deg); display: inline-block;
+    font-family: Impact, 'Arial Black', sans-serif; font-size: 52px; letter-spacing: -2px;
+    color: #fff; text-shadow: 3px 0 0 #e85d26, -3px 0 0 #3b7dd8;
+    padding: 4px 14px; transform: skewX(-8deg); display: inline-block;
     height: 80px; display: flex; align-items: center; justify-content: center;
   }
   .inv-logo img { width: auto; height: 100%; max-width: 200px; object-fit: contain; display: block; }
 
-  /* meta row */
   .inv-meta {
-    display: flex; gap: 0; padding: 14px 40px; border-bottom: 2px solid #ddd;
-    font-size: 12.5px;
+    display: flex; gap: 0; padding: 14px 40px; border-bottom: 2px solid #ddd; font-size: 12.5px;
   }
   .inv-meta-item { flex: 1; }
   .inv-meta-item:not(:last-child) { border-right: 1px solid #ddd; padding-right: 20px; margin-right: 20px; }
 
-  /* bill-to row */
   .inv-parties {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    display: grid; grid-template-columns: 1fr 1fr;
     padding: 20px 40px 24px; border-bottom: 1px solid #ddd;
   }
   .inv-party-label { font-weight: 700; font-size: 12px; margin-bottom: 6px; }
   .inv-party-val { font-size: 12.5px; line-height: 1.6; color: #333; }
 
-  /* table */
   .inv-table { width: 100%; border-collapse: collapse; }
   .inv-table thead { background: #111; color: #fff; }
-  .inv-table thead th {
-    padding: 10px 16px; text-align: left; font-size: 12px;
-    letter-spacing: .5px; font-weight: 600;
-  }
+  .inv-table thead th { padding: 10px 16px; text-align: left; font-size: 12px; letter-spacing: .5px; font-weight: 600; }
   .inv-table thead th:not(:first-child) { text-align: right; }
 
-  /* event row (level 0) */
-  tr.row-event td {
-    padding: 12px 16px 8px; font-weight: 700; font-size: 13px;
-    color: #e85d26; border-bottom: 1.5px solid #3b7dd8;
-  }
+  tr.row-event td { padding: 12px 16px 8px; font-weight: 700; font-size: 13px; color: #e85d26; border-bottom: 1.5px solid #3b7dd8; }
   tr.row-event td:not(:first-child) { text-align: right; color: #e85d26; }
-
-  /* package row (level 1) */
-  tr.row-pkg td {
-    padding: 8px 16px 8px 32px; font-weight: 600; font-size: 12.5px;
-    color: #3b7dd8; border-bottom: 1px solid #eee;
-  }
+  tr.row-pkg td { padding: 8px 16px 8px 32px; font-weight: 600; font-size: 12.5px; color: #3b7dd8; border-bottom: 1px solid #eee; }
   tr.row-pkg td:not(:first-child) { text-align: right; color: #3b7dd8; }
-
-  /* equipment row (level 2) */
-  tr.row-equip td {
-    padding: 7px 16px 7px 52px; font-size: 12px;
-    color: #444; border-bottom: 1px solid #f5f5f5;
-  }
+  tr.row-equip td { padding: 7px 16px 7px 52px; font-size: 12px; color: #444; border-bottom: 1px solid #f5f5f5; }
   tr.row-equip td:not(:first-child) { text-align: right; }
-
-  /* discount row */
-  tr.row-discount td {
-    padding: 8px 16px 8px 32px; font-size: 12.5px;
-    color: #c0392b; border-bottom: 1px solid #eee;
-  }
+  tr.row-discount td { padding: 8px 16px 8px 32px; font-size: 12.5px; color: #c0392b; border-bottom: 1px solid #eee; }
   tr.row-discount td:not(:first-child) { text-align: right; color: #c0392b; }
-
-  /* discount parent row */
-  tr.row-discount-group td {
-    padding: 12px 16px 8px; font-weight: 700; font-size: 13px;
-    color: #e85d26; border-bottom: 1.5px solid #3b7dd8;
-  }
+  tr.row-discount-group td { padding: 12px 16px 8px; font-weight: 700; font-size: 13px; color: #e85d26; border-bottom: 1.5px solid #3b7dd8; }
   tr.row-discount-group td:not(:first-child) { text-align: right; color: #e85d26; }
+  tr.row-hotel td { padding: 10px 16px; font-size: 11.5px; color: #555; line-height: 1.55; border-bottom: 1px solid #eee; }
+  tr.row-hotel td.hotel-label { font-weight: 700; color: #e85d26; font-size: 13px; vertical-align: top; }
 
-  /* hotel row */
-  tr.row-hotel td {
-    padding: 10px 16px; font-size: 11.5px; color: #555; line-height: 1.55;
-    border-bottom: 1px solid #eee;
-  }
-  tr.row-hotel td.hotel-label {
-    font-weight: 700; color: #e85d26; font-size: 13px; vertical-align: top;
-  }
-
-  /* amount due */
-  .inv-total {
-    display: flex; justify-content: flex-end; align-items: center;
-    padding: 0 0 0 0; background: #fff;
-  }
-  .inv-total-inner {
-    display: flex; align-items: center; background: #111;
-    margin: 0; padding: 14px 40px;
-  }
+  .inv-total { display: flex; justify-content: flex-end; background: #fff; }
+  .inv-total-inner { display: flex; align-items: center; background: #111; margin: 0; padding: 14px 40px; }
   .inv-total-label { color: #fff; font-weight: 700; font-size: 14px; margin-right: 24px; }
   .inv-total-val { color: #fff; font-size: 18px; font-weight: 700; min-width: 80px; text-align: right; }
 
-  /* footer */
-  .inv-footer {
-    display: flex; padding: 20px 40px; border-top: 2px solid #ddd; gap: 20px;
-  }
-  .inv-footer-logo {
-    background: #111; color: #fff; padding: 12px 16px; font-weight: 700;
-    font-size: 13px; min-width: 120px; line-height: 1.5;
-  }
+  .inv-footer { display: flex; padding: 20px 40px; border-top: 2px solid #ddd; gap: 20px; }
+  .inv-footer-logo { background: #111; color: #fff; padding: 12px 16px; font-weight: 700; font-size: 13px; min-width: 120px; line-height: 1.5; }
   .inv-footer-info { font-size: 12px; color: #444; line-height: 1.8; display: flex; flex-direction: column; justify-content: center; }
   .inv-footer-info a { color: #3b7dd8; text-decoration: none; }
-
-  /* ── STATUS BAR ── */
-  #status-bar {
-    position: sticky; bottom: 0; background: #111; padding: 10px 20px;
-    display: flex; gap: 10px; align-items: center; border-top: 1px solid #333;
-  }
-
-  /* ── PRINT ── */
-  @page { margin: 0; size: letter portrait; }
-  @media print {
-    body { background: #fff; }
-    #sidebar, #status-bar { display: none !important; }
-    #preview-pane { padding: 0; background: #fff; }
-    #invoice { box-shadow: none; width: 100%; }
-  }
-
-  /* ── MISC HELPERS ── */
-  .tag-draft {
-    display: inline-block; background: #e85d26; color: #fff;
-    font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 3px;
-    letter-spacing: 1px; margin-left: 8px; vertical-align: middle;
-  }
-  .notes-section { margin-top: 16px; }
 
   /* ── MODE SELECTOR ── */
   #mode-select { width: auto; padding: 5px 10px; font-size: 12px; background: #2a2a2a; border: 1px solid #444; color: #eee; border-radius: 4px; outline: none; cursor: pointer; }
 
-  /* ── EXPENSE ROWS (sidebar) ── */
+  /* ── EXPENSE ── */
   .expense-row { display: flex; gap: 6px; align-items: center; background: #222; border: 1px solid #333; border-radius: 6px; padding: 8px 10px; }
   .expense-row input[type="text"] { flex: 2; font-size: 12px; }
   .expense-row select { flex: 1.5; font-size: 12px; }
   .expense-row input[type="number"] { width: 80px; font-size: 12px; }
 
-  /* ── EXPENSE SUMMARY (preview) ── */
   #exp-summary { width: 720px; background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,.2); font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #222; }
   .exp-header { background: #111; color: #fff; padding: 28px 40px; display: flex; justify-content: space-between; align-items: center; }
   .exp-title { font-size: 36px; font-weight: 300; letter-spacing: -1px; }
@@ -271,15 +257,41 @@
   .exp-bottom-row.row-revenue { font-weight: 700; color: #27ae60; }
   .exp-bottom-row.row-profit { background: #111; color: #fff; font-weight: 700; font-size: 15px; }
   .exp-bottom-row.row-loss { background: #c0392b; color: #fff; font-weight: 700; font-size: 15px; }
+
+  /* ── PRINT ── */
+  @page { margin: 0; size: letter portrait; }
+  @media print {
+    body { background: #fff; }
+    #sidebar, #history-drawer, #history-overlay { display: none !important; }
+    #preview-pane { padding: 0; background: #fff; }
+    #invoice { box-shadow: none; width: 100%; }
+  }
 </style>
 </head>
 <body>
 <div id="app">
 
+<!-- ══════════════════════ HISTORY DRAWER ══════════════════════ -->
+<div id="history-overlay" onclick="closeHistory()"></div>
+<div id="history-drawer">
+  <div class="history-header">
+    <h2>📋 Invoice History</h2>
+    <span id="history-count">0 saved</span>
+    <button id="history-close" onclick="closeHistory()">✕</button>
+  </div>
+  <div id="history-search">
+    <input type="text" placeholder="Search by client, #, or amount…" oninput="filterHistory(this.value)" id="history-search-input">
+  </div>
+  <div id="history-list">
+    <div class="history-empty">No saved invoices yet.<br>Hit <strong style="color:#e85d26;">Save to History</strong> to store your first one.</div>
+  </div>
+</div>
+
 <!-- ══════════════════════ SIDEBAR ══════════════════════ -->
 <div id="sidebar">
-  <div style="display:flex;align-items:center;gap:10px;">
+  <div style="display:flex;align-items:center;gap:8px;">
     <h1 style="flex:1;margin:0;">RND Invoice</h1>
+    <button class="btn btn-dark btn-sm" onclick="openHistory()" title="View saved invoices" style="white-space:nowrap;">📋 History</button>
     <select id="mode-select" onchange="switchMode(this.value)">
       <option value="invoice">Invoice</option>
       <option value="expenses">Expenses</option>
@@ -402,9 +414,11 @@
   <hr class="divider">
 
   <!-- Actions -->
-  <div id="status-bar" style="position:static;flex-direction:column;gap:8px;background:transparent;border:none;padding:0;">
-    <button class="btn btn-green btn-full" onclick="window.print()">Print / Save as PDF</button>
-    <button class="btn btn-dark btn-full" onclick="saveData()">Save Draft (browser)</button>
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    <button class="btn btn-green btn-full" onclick="saveToHistory()">💾 Save to History</button>
+    <button class="btn btn-blue btn-full" onclick="window.print()">Print / Save as PDF</button>
+    <button class="btn btn-dark btn-full" onclick="saveQuickDraft()">Save Quick Draft</button>
+    <div id="save-indicator">—</div>
     <button class="btn btn-red btn-full btn-sm" onclick="clearAll()">Clear All</button>
   </div>
 
@@ -425,7 +439,7 @@
     <hr class="divider">
     <div style="display:flex;flex-direction:column;gap:8px;">
       <button class="btn btn-green btn-full" onclick="window.print()">Print / Save as PDF</button>
-      <button class="btn btn-dark btn-full" onclick="saveData()">Save Draft (browser)</button>
+      <button class="btn btn-dark btn-full" onclick="saveQuickDraft()">Save Quick Draft</button>
     </div>
   </div>
 
@@ -440,6 +454,11 @@
 </div><!-- #app -->
 
 <script>
+// ─── STORAGE KEYS ─────────────────────────────────────────────────────────────
+const HISTORY_KEY   = 'rnd-invoice-history';   // array of saved invoice objects
+const QUICKDRAFT_KEY = 'rnd-invoice-draft';     // single quick draft (old behavior)
+let currentHistoryId = null;                     // key of the currently loaded history entry
+
 // ─── DATA MODEL ───────────────────────────────────────────────────────────────
 let state = {
   num: 1016, status: 'Draft',
@@ -458,30 +477,26 @@ let state = {
   bizEmail:    document.getElementById('biz-email').value,
 };
 
-// ─── ORDINAL SUFFIX ───────────────────────────────────────────────────────────
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
 function ordinal(n) {
   const s = ['th','st','nd','rd'], v = n % 100;
   return n + (s[(v-20)%10] || s[v] || s[0]);
 }
-
-// ─── TODAY DATE ───────────────────────────────────────────────────────────────
 function todayFormatted() {
   const d = new Date();
   const months = ['January','February','March','April','May','June',
                   'July','August','September','October','November','December'];
   return `${months[d.getMonth()]} ${ordinal(d.getDate())}, ${d.getFullYear()}`;
 }
-
-// ─── FORMAT MONEY ─────────────────────────────────────────────────────────────
 function fmt(v) {
   if (v === null || v === undefined || v === '') return '';
   const n = parseFloat(v);
   if (isNaN(n)) return '';
   return (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 2});
 }
+function esc(v) { return String(v ?? '').replace(/"/g, '&quot;'); }
 
-// ─── EVENT / ITEM / DETAIL MANAGEMENT ────────────────────────────────────────
-// Events are headers (no price). Items are priced. Details are disclosure (no price).
+// ─── EVENTS / ITEMS / DETAILS ────────────────────────────────────────────────
 let eventIdCounter = 0;
 function newEvent()  { return { id: eventIdCounter++, name: '', items: [] }; }
 function newItem()   { return { name: '', qty: 1, price: '', comp: false, details: [] }; }
@@ -506,17 +521,15 @@ function removeDetail(eventId, itemIdx, detailIdx) {
   if (ev && ev.items[itemIdx]) { ev.items[itemIdx].details.splice(detailIdx, 1); renderSidebar(); render(); }
 }
 
-// ─── DISCOUNT MANAGEMENT ──────────────────────────────────────────────────────
+// ─── DISCOUNTS ────────────────────────────────────────────────────────────────
 let discountIdCounter = 0;
 function addDiscount() {
   state.discounts.push({ id: discountIdCounter++, name: '', amount: '' });
-  renderSidebar();
-  render();
+  renderSidebar(); render();
 }
 function removeDiscount(id) {
   state.discounts = state.discounts.filter(d => d.id !== id);
-  renderSidebar();
-  render();
+  renderSidebar(); render();
 }
 
 // ─── READ SIDEBAR INPUTS ──────────────────────────────────────────────────────
@@ -538,7 +551,6 @@ function readState() {
   state.events.forEach(ev => {
     const nameEl = document.getElementById(`ev-name-${ev.id}`);
     if (nameEl) ev.name = nameEl.value;
-
     ev.items.forEach((item, i) => {
       const iNameEl  = document.getElementById(`it-name-${ev.id}-${i}`);
       const iQtyEl   = document.getElementById(`it-qty-${ev.id}-${i}`);
@@ -548,7 +560,6 @@ function readState() {
       if (iQtyEl)   item.qty   = iQtyEl.value;
       if (iPriceEl) item.price = iPriceEl.value;
       if (iCompEl)  item.comp  = iCompEl.checked;
-
       item.details.forEach((det, j) => {
         const dNameEl = document.getElementById(`dt-name-${ev.id}-${i}-${j}`);
         const dQtyEl  = document.getElementById(`dt-qty-${ev.id}-${i}-${j}`);
@@ -566,24 +577,11 @@ function readState() {
   });
 }
 
-// ─── DRAG-AND-DROP REORDER ────────────────────────────────────────────────────
+// ─── DRAG AND DROP ────────────────────────────────────────────────────────────
 let dragSrcId = null;
-
-function onDragStart(e, id) {
-  dragSrcId = id;
-  e.dataTransfer.effectAllowed = 'move';
-  e.currentTarget.classList.add('dragging');
-}
-function onDragEnd(e) {
-  e.currentTarget.classList.remove('dragging');
-  document.querySelectorAll('.event-card').forEach(c => c.classList.remove('drag-over'));
-}
-function onDragOver(e, id) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  document.querySelectorAll('.event-card').forEach(c => c.classList.remove('drag-over'));
-  if (id !== dragSrcId) e.currentTarget.classList.add('drag-over');
-}
+function onDragStart(e, id) { dragSrcId = id; e.dataTransfer.effectAllowed = 'move'; e.currentTarget.classList.add('dragging'); }
+function onDragEnd(e) { e.currentTarget.classList.remove('dragging'); document.querySelectorAll('.event-card').forEach(c => c.classList.remove('drag-over')); }
+function onDragOver(e, id) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; document.querySelectorAll('.event-card').forEach(c => c.classList.remove('drag-over')); if (id !== dragSrcId) e.currentTarget.classList.add('drag-over'); }
 function onDrop(e, id) {
   e.preventDefault();
   if (dragSrcId === null || dragSrcId === id) return;
@@ -593,8 +591,7 @@ function onDrop(e, id) {
   const [moved] = state.events.splice(from, 1);
   state.events.splice(to, 0, moved);
   dragSrcId = null;
-  renderSidebar();
-  render();
+  renderSidebar(); render();
 }
 
 // ─── RENDER SIDEBAR ───────────────────────────────────────────────────────────
@@ -645,7 +642,6 @@ function renderSidebar() {
     ec.appendChild(card);
   });
 
-  // Discounts
   const dc = document.getElementById('discounts-container');
   dc.innerHTML = '';
   state.discounts.forEach(d => {
@@ -660,17 +656,12 @@ function renderSidebar() {
   });
 }
 
-function esc(v) { return String(v ?? '').replace(/"/g, '&quot;'); }
-
 // ─── COMPUTE TOTAL ────────────────────────────────────────────────────────────
-// Only items are priced — event totals auto-sum from their items, no double-counting.
 function computeTotal() {
   let total = 0;
   state.events.forEach(ev => {
     ev.items.forEach(item => {
-      if (!item.comp && item.price !== '') {
-        total += parseFloat(item.price) * (parseFloat(item.qty) || 1);
-      }
+      if (!item.comp && item.price !== '') total += parseFloat(item.price) * (parseFloat(item.qty) || 1);
     });
   });
   state.discounts.forEach(d => {
@@ -685,83 +676,44 @@ function render() {
   const billLines = state.billTo ? state.billTo.split('\n').map(l => `<div>${l}</div>`).join('') : '<div>N/A</div>';
   const notesHtml = state.notes ? `<div style="padding:16px 40px 0;font-size:12px;color:#555;">${state.notes.replace(/\n/g,'<br>')}</div>` : '';
 
-  // Build table rows
   let rows = '';
   state.events.forEach(ev => {
     if (!ev.name) return;
-
-    // Event total = sum of non-comp items
-    let evSum = 0;
-    let hasPrice = false;
-    let anyNonComp = false;
+    let evSum = 0; let hasPrice = false; let anyNonComp = false;
     ev.items.forEach(item => {
-      if (!item.comp) {
-        anyNonComp = true;
-        if (item.price !== '') { evSum += parseFloat(item.price) * (parseFloat(item.qty) || 1); hasPrice = true; }
-      }
+      if (!item.comp) { anyNonComp = true; if (item.price !== '') { evSum += parseFloat(item.price) * (parseFloat(item.qty) || 1); hasPrice = true; } }
     });
     const evTotalDisplay = ev.items.length === 0 ? '' : (!anyNonComp ? 'COMP' : (hasPrice ? fmt(evSum) : ''));
-
-    rows += `<tr class="row-event">
-      <td colspan="3">${ev.name}</td>
-      <td>${evTotalDisplay}</td>
-    </tr>`;
-
+    rows += `<tr class="row-event"><td colspan="3">${ev.name}</td><td>${evTotalDisplay}</td></tr>`;
     ev.items.forEach((item, i) => {
       if (!item.name) return;
       const iAmt = (!item.comp && item.price !== '') ? parseFloat(item.price) * (parseFloat(item.qty) || 1) : null;
       const iPrice = item.comp ? 'COMP' : (item.price !== '' ? fmt(item.price) : '');
       const iTotal = item.comp ? 'COMP' : (iAmt !== null ? fmt(iAmt) : '');
-      rows += `<tr class="row-pkg">
-        <td>${item.name}</td>
-        <td>${item.qty || 1}</td>
-        <td>${iPrice}</td>
-        <td>${iTotal}</td>
-      </tr>`;
-
+      rows += `<tr class="row-pkg"><td>${item.name}</td><td>${item.qty||1}</td><td>${iPrice}</td><td>${iTotal}</td></tr>`;
       item.details.forEach(det => {
         if (!det.name) return;
-        rows += `<tr class="row-equip">
-          <td>${det.name}</td>
-          <td>${det.qty || 1}</td>
-          <td></td>
-          <td></td>
-        </tr>`;
+        rows += `<tr class="row-equip"><td>${det.name}</td><td>${det.qty||1}</td><td></td><td></td></tr>`;
       });
     });
   });
 
-  // Discounts
   const hasDiscounts = state.discounts.some(d => d.name);
   if (hasDiscounts) {
     const discTotal = state.discounts.reduce((s, d) => s - (d.amount ? Math.abs(parseFloat(d.amount)) : 0), 0);
-    rows += `<tr class="row-discount-group">
-      <td>Discounts</td><td>1</td>
-      <td>${fmt(discTotal)}</td>
-      <td>${fmt(discTotal)}</td>
-    </tr>`;
+    rows += `<tr class="row-discount-group"><td>Discounts</td><td>1</td><td>${fmt(discTotal)}</td><td>${fmt(discTotal)}</td></tr>`;
     state.discounts.forEach(d => {
       if (!d.name) return;
       const a = d.amount ? -Math.abs(parseFloat(d.amount)) : '';
-      rows += `<tr class="row-discount">
-        <td>${d.name}</td><td>1</td>
-        <td>${a !== '' ? fmt(a) : ''}</td>
-        <td>${a !== '' ? fmt(a) : ''}</td>
-      </tr>`;
+      rows += `<tr class="row-discount"><td>${d.name}</td><td>1</td><td>${a !== '' ? fmt(a) : ''}</td><td>${a !== '' ? fmt(a) : ''}</td></tr>`;
     });
   }
 
-  // Hotel
   if (state.hotelEnabled && state.hotelText) {
-    rows += `<tr class="row-hotel">
-      <td class="hotel-label" colspan="1">Hotel &amp; Parking<br>Accommodations</td>
-      <td colspan="3" style="font-size:11.5px;color:#555;line-height:1.6;">${state.hotelText}</td>
-    </tr>`;
+    rows += `<tr class="row-hotel"><td class="hotel-label" colspan="1">Hotel &amp; Parking<br>Accommodations</td><td colspan="3" style="font-size:11.5px;color:#555;line-height:1.6;">${state.hotelText}</td></tr>`;
   }
 
-  const isDraft = state.status === 'Draft';
   document.getElementById('invoice').innerHTML = `
-    <!-- HEADER -->
     <div class="inv-header">
       <div class="inv-header-left">
         <div class="inv-company">${state.bizName || 'Your Company'}</div>
@@ -769,15 +721,11 @@ function render() {
       </div>
       <div class="inv-logo">${state.bizLogoImg ? `<img src="${state.bizLogoImg}">` : (state.bizLogoText || '')}</div>
     </div>
-
-    <!-- META ROW -->
     <div class="inv-meta">
       <div class="inv-meta-item">Invoice #${state.num || '—'}</div>
       <div class="inv-meta-item">Issued On: ${state.issued || '—'}</div>
       <div class="inv-meta-item">Due Date: ${state.due || '—'}</div>
     </div>
-
-    <!-- PARTIES -->
     <div class="inv-parties">
       <div>
         <div class="inv-party-label">Bill to:</div>
@@ -785,14 +733,9 @@ function render() {
       </div>
       <div>
         <div class="inv-party-label">Payable to:</div>
-        <div class="inv-party-val">
-          ${state.bizName || 'Your Company'}<br>
-          ${(state.bizAddress || '').replace(/\n/g, '<br>')}
-        </div>
+        <div class="inv-party-val">${state.bizName || 'Your Company'}<br>${(state.bizAddress||'').replace(/\n/g,'<br>')}</div>
       </div>
     </div>
-
-    <!-- LINE ITEMS TABLE -->
     <table class="inv-table">
       <thead>
         <tr>
@@ -804,79 +747,255 @@ function render() {
       </thead>
       <tbody>${rows}</tbody>
     </table>
-
     ${notesHtml}
-
-    <!-- TOTAL -->
     <div class="inv-total">
       <div class="inv-total-inner" style="width:100%;justify-content:flex-end;">
         <span class="inv-total-label">Amount Due:</span>
         <span class="inv-total-val">${fmt(total)}</span>
       </div>
     </div>
-
-    <!-- FOOTER -->
     <div class="inv-footer">
-      <div class="inv-footer-logo">${state.bizLogoImg ? `<img src="${state.bizLogoImg}" style="max-height:50px;max-width:80px;object-fit:contain;">` : (state.bizName || '').replace(/ /g, '<br>')}</div>
+      <div class="inv-footer-logo">${state.bizLogoImg ? `<img src="${state.bizLogoImg}" style="max-height:50px;max-width:80px;object-fit:contain;">` : (state.bizName||'').replace(/ /g,'<br>')}</div>
       <div class="inv-footer-info">
-        <span>${state.bizAddress || ''}</span>
-        <span>${state.bizPhone || ''}</span>
-        <a href="mailto:${state.bizEmail || ''}">${state.bizEmail || ''}</a>
+        <span>${state.bizAddress||''}</span>
+        <span>${state.bizPhone||''}</span>
+        <a href="mailto:${state.bizEmail||''}">${state.bizEmail||''}</a>
       </div>
     </div>
   `;
 }
 
-// ─── ON CHANGE (debounced) ────────────────────────────────────────────────────
+// ─── CHANGE HANDLER ───────────────────────────────────────────────────────────
 let renderTimer;
 function onChange() {
   clearTimeout(renderTimer);
-  renderTimer = setTimeout(() => { readState(); render(); }, 80);
+  renderTimer = setTimeout(() => {
+    readState();
+    render();
+    setSaveIndicator('unsaved');
+  }, 80);
 }
 
-// ─── SAVE / LOAD ──────────────────────────────────────────────────────────────
-function saveData() {
+function setSaveIndicator(state, msg) {
+  const el = document.getElementById('save-indicator');
+  el.className = '';
+  if (state === 'saved') {
+    el.className = 'saved';
+    el.textContent = msg || '✓ Saved';
+  } else if (state === 'unsaved') {
+    el.className = 'unsaved';
+    el.textContent = 'Unsaved changes';
+  } else {
+    el.textContent = '—';
+  }
+}
+
+// ─── HISTORY STORAGE ──────────────────────────────────────────────────────────
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
+}
+function setHistory(arr) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(arr));
+}
+
+function saveToHistory() {
   readState();
-  localStorage.setItem('rnd-invoice', JSON.stringify(state));
-  alert('Draft saved to browser!');
+  const history = getHistory();
+  const total = computeTotal();
+  const client = state.billTo ? state.billTo.split('\n')[0].trim() : 'No client';
+  const timestamp = new Date().toISOString();
+  const id = `inv-${Date.now()}`;
+
+  // Check if we're updating an existing entry
+  const existingIdx = currentHistoryId ? history.findIndex(h => h.id === currentHistoryId) : -1;
+
+  const entry = {
+    id: existingIdx >= 0 ? currentHistoryId : id,
+    savedAt: timestamp,
+    num: state.num,
+    status: state.status,
+    issued: state.issued,
+    due: state.due,
+    client: client,
+    total: total,
+    data: JSON.parse(JSON.stringify(state)) // deep copy
+  };
+
+  if (existingIdx >= 0) {
+    history[existingIdx] = entry;
+  } else {
+    history.unshift(entry);
+    currentHistoryId = entry.id;
+  }
+
+  setHistory(history);
+  setSaveIndicator('saved', `✓ Saved — Invoice #${state.num}`);
+  renderHistoryList();
 }
 
+function saveQuickDraft() {
+  readState();
+  localStorage.setItem(QUICKDRAFT_KEY, JSON.stringify(state));
+  setSaveIndicator('saved', '✓ Quick draft saved');
+}
+
+function loadFromHistory(id) {
+  const history = getHistory();
+  const entry = history.find(h => h.id === id);
+  if (!entry) return;
+
+  const s = entry.data;
+  (s.events || []).forEach(ev => {
+    if (!ev.items) ev.items = [];
+    ev.items.forEach(item => { if (!item.details) item.details = []; });
+  });
+
+  eventIdCounter = s.events && s.events.length ? Math.max(...s.events.map(e => e.id + 1)) : 0;
+  discountIdCounter = s.discounts && s.discounts.length ? Math.max(...s.discounts.map(d => d.id + 1)) : 0;
+  state = s;
+  currentHistoryId = id;
+
+  // restore inputs
+  document.getElementById('inv-num').value     = state.num || '';
+  document.getElementById('inv-status').value  = state.status || 'Draft';
+  document.getElementById('inv-issued').value  = state.issued || '';
+  document.getElementById('inv-due').value     = state.due || '';
+  document.getElementById('bill-to').value     = state.billTo || '';
+  document.getElementById('hotel-enabled').checked = !!state.hotelEnabled;
+  document.getElementById('hotel-text').value  = state.hotelText || '';
+  document.getElementById('notes').value       = state.notes || '';
+  document.getElementById('biz-name').value    = state.bizName || '';
+  document.getElementById('biz-logo-text').value = state.bizLogoText || '';
+  document.getElementById('biz-address').value = state.bizAddress || '';
+  document.getElementById('biz-phone').value   = state.bizPhone || '';
+  document.getElementById('biz-email').value   = state.bizEmail || '';
+  document.getElementById('biz-logo-clear').style.display = state.bizLogoImg ? 'block' : 'none';
+
+  renderSidebar();
+  render();
+  setSaveIndicator('saved', `✓ Loaded Invoice #${state.num}`);
+  closeHistory();
+  renderHistoryList();
+}
+
+function deleteFromHistory(id, e) {
+  e.stopPropagation();
+  if (!confirm('Delete this saved invoice? This cannot be undone.')) return;
+  const history = getHistory().filter(h => h.id !== id);
+  setHistory(history);
+  if (currentHistoryId === id) currentHistoryId = null;
+  renderHistoryList();
+}
+
+// ─── RENDER HISTORY LIST ──────────────────────────────────────────────────────
+let historyFilter = '';
+
+function filterHistory(q) {
+  historyFilter = q.toLowerCase();
+  renderHistoryList();
+}
+
+function renderHistoryList() {
+  const history = getHistory();
+  const countEl = document.getElementById('history-count');
+  countEl.textContent = `${history.length} saved`;
+
+  const list = document.getElementById('history-list');
+
+  const filtered = history.filter(h => {
+    if (!historyFilter) return true;
+    return (
+      String(h.num).includes(historyFilter) ||
+      (h.client || '').toLowerCase().includes(historyFilter) ||
+      (h.status || '').toLowerCase().includes(historyFilter) ||
+      fmt(h.total).toLowerCase().includes(historyFilter)
+    );
+  });
+
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="history-empty">${history.length === 0
+      ? 'No saved invoices yet.<br>Hit <strong style="color:#e85d26;">Save to History</strong> to store your first one.'
+      : 'No invoices match your search.'
+    }</div>`;
+    return;
+  }
+
+  list.innerHTML = '';
+  filtered.forEach(h => {
+    const saved = new Date(h.savedAt);
+    const dateStr = saved.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const timeStr = saved.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const isActive = h.id === currentHistoryId;
+
+    const card = document.createElement('div');
+    card.className = `history-card${isActive ? ' active-invoice' : ''}`;
+    card.innerHTML = `
+      <div class="hc-top">
+        <span class="hc-num">Invoice #${h.num}</span>
+        <span class="hc-status ${h.status}">${h.status}</span>
+        ${isActive ? '<span style="font-size:10px;color:#e85d26;margin-left:auto;">● Active</span>' : ''}
+      </div>
+      <div class="hc-client">${h.client || 'No client'}</div>
+      <div class="hc-meta">
+        <span>📅 ${h.issued || '—'}</span>
+        <span>💾 ${dateStr} ${timeStr}</span>
+      </div>
+      <div class="hc-amount">${fmt(h.total)}</div>
+      <div class="hc-actions">
+        <button class="hc-btn load" onclick="loadFromHistory('${h.id}')">Load</button>
+        <button class="hc-btn delete" onclick="deleteFromHistory('${h.id}', event)">Delete</button>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function openHistory() {
+  renderHistoryList();
+  document.getElementById('history-drawer').classList.add('open');
+  document.getElementById('history-overlay').classList.add('show');
+}
+function closeHistory() {
+  document.getElementById('history-drawer').classList.remove('open');
+  document.getElementById('history-overlay').classList.remove('show');
+}
+
+// ─── SAVE / LOAD / CLEAR ──────────────────────────────────────────────────────
 function loadData() {
-  const saved = localStorage.getItem('rnd-invoice');
-  if (!saved) return;
+  const saved = localStorage.getItem(QUICKDRAFT_KEY);
+  if (!saved) return false;
   try {
     const s = JSON.parse(saved);
-    // migrate old format: ensure items[] and details[] exist
     (s.events || []).forEach(ev => {
       if (!ev.items) ev.items = [];
       ev.items.forEach(item => { if (!item.details) item.details = []; });
     });
-    eventIdCounter = s.events.length ? Math.max(...s.events.map(e => e.id + 1)) : 0;
-    discountIdCounter = s.discounts.length ? Math.max(...s.discounts.map(d => d.id + 1)) : 0;
+    eventIdCounter = s.events && s.events.length ? Math.max(...s.events.map(e => e.id + 1)) : 0;
+    discountIdCounter = s.discounts && s.discounts.length ? Math.max(...s.discounts.map(d => d.id + 1)) : 0;
     state = s;
-    // restore simple inputs
-    document.getElementById('inv-num').value    = state.num;
-    document.getElementById('inv-status').value = state.status;
-    document.getElementById('inv-issued').value = state.issued;
-    document.getElementById('inv-due').value    = state.due;
-    document.getElementById('bill-to').value    = state.billTo;
+    document.getElementById('inv-num').value     = state.num;
+    document.getElementById('inv-status').value  = state.status;
+    document.getElementById('inv-issued').value  = state.issued;
+    document.getElementById('inv-due').value     = state.due;
+    document.getElementById('bill-to').value     = state.billTo;
     document.getElementById('hotel-enabled').checked = state.hotelEnabled;
-    document.getElementById('hotel-text').value = state.hotelText;
-    document.getElementById('notes').value      = state.notes || '';
-    document.getElementById('biz-name').value     = state.bizName || '';
+    document.getElementById('hotel-text').value  = state.hotelText;
+    document.getElementById('notes').value       = state.notes || '';
+    document.getElementById('biz-name').value    = state.bizName || '';
     document.getElementById('biz-logo-text').value = state.bizLogoText || '';
-    document.getElementById('biz-address').value  = state.bizAddress || '';
-    document.getElementById('biz-phone').value    = state.bizPhone || '';
-    document.getElementById('biz-email').value    = state.bizEmail || '';
+    document.getElementById('biz-address').value = state.bizAddress || '';
+    document.getElementById('biz-phone').value   = state.bizPhone || '';
+    document.getElementById('biz-email').value   = state.bizEmail || '';
     document.getElementById('biz-logo-clear').style.display = state.bizLogoImg ? 'block' : 'none';
     renderSidebar();
     render();
-  } catch(e) { console.error('Load failed', e); }
+    return true;
+  } catch(e) { console.error('Load failed', e); return false; }
 }
 
 function clearAll() {
   if (!confirm('Clear all data and start fresh?')) return;
-  localStorage.removeItem('rnd-invoice');
+  currentHistoryId = null;
   state = {
     num: parseInt(state.num||1016)+1, status:'Draft', issued:'', due:'', billTo:'',
     events:[], discounts:[], hotelEnabled:true,
@@ -891,12 +1010,14 @@ function clearAll() {
   document.getElementById('inv-due').value    = '';
   document.getElementById('bill-to').value    = '';
   document.getElementById('notes').value      = '';
+  setSaveIndicator('', '');
   renderSidebar();
   render();
 }
 
 function newInvoice() {
   if (!confirm('Start a new invoice? Current unsaved data will be lost.')) return;
+  currentHistoryId = null;
   state = {
     num: parseInt(state.num||1016)+1, status:'Invoice', issued: todayFormatted(), due:'', billTo:'',
     events:[], discounts:[], hotelEnabled:true,
@@ -911,11 +1032,12 @@ function newInvoice() {
   document.getElementById('inv-due').value    = '';
   document.getElementById('bill-to').value    = '';
   document.getElementById('notes').value      = '';
+  setSaveIndicator('', '');
   renderSidebar();
   render();
 }
 
-// ─── WIRE UP STATIC INPUTS ───────────────────────────────────────────────────
+// ─── WIRE UP STATIC INPUTS ────────────────────────────────────────────────────
 ['inv-num','inv-status','inv-issued','inv-due','bill-to','hotel-enabled','hotel-text','notes',
  'biz-name','biz-logo-text','biz-address','biz-phone','biz-email']
   .forEach(id => {
@@ -943,92 +1065,12 @@ function clearLogoImg() {
   render();
 }
 
-// ─── INIT ─────────────────────────────────────────────────────────────────────
-(function init() {
-  // Set today's date as default issued date
-  document.getElementById('inv-issued').value = todayFormatted();
-
-  // Load from localStorage if available
-  if (localStorage.getItem('rnd-invoice')) {
-    loadData();
-  } else {
-    // Seed with sample data matching the invoice
-    document.getElementById('inv-num').value = '1016';
-    document.getElementById('inv-issued').value = 'April 21st, 2026';
-    document.getElementById('inv-due').value = 'May 25th, 2026';
-    document.getElementById('bill-to').value = 'N/A';
-
-    const events = [
-      { name:'Mehndi', items:[
-        { name:'Sound Package', qty:1, price:'950', comp:false, details:[
-          {name:'RCF 945', qty:2}, {name:'Wireless Microphone', qty:2},
-          {name:'Facade', qty:2}, {name:'DJ Dev / MC RND', qty:1},
-        ]},
-      ]},
-      { name:'Sangeet (350 People)', items:[
-        { name:'Sound Package', qty:1, price:'1600', comp:false, details:[
-          {name:'RCF 945', qty:2}, {name:'RCF SUB 708', qty:2},
-          {name:'Wireless Microphone', qty:2}, {name:'Facade', qty:1},
-          {name:'DJ Dev / MC RND', qty:1},
-        ]},
-        { name:'LED Dandiya Sticks', qty:1, price:'', comp:false, details:[] },
-      ]},
-      { name:'Baraat', items:[
-        { name:'Baraat Package', qty:1, price:'500', comp:false, details:[
-          {name:'RCF 945', qty:2}, {name:'DJ Dev / MC RND', qty:1},
-          {name:'Wireless Microphone', qty:1}, {name:'Mobile Baraat Vehicle', qty:1},
-        ]},
-      ]},
-      { name:'Ceremony Package', items:[
-        { name:'Ceremony Sound', qty:1, price:'800', comp:false, details:[
-          {name:'Basic Sound Package', qty:1}, {name:'Wireless Microphone', qty:2},
-          {name:'Lapel Microphone', qty:1}, {name:'Facade', qty:2},
-          {name:'Additional Technician', qty:1}, {name:'Lunch Time Speaker', qty:1},
-        ]},
-      ]},
-      { name:'Reception (400 People)', items:[
-        { name:'Upgraded Sound Package', qty:1, price:'2500', comp:false, details:[
-          {name:'RCF 945', qty:4}, {name:'RCF SUB 708', qty:2},
-          {name:'Wireless Microphone', qty:2}, {name:'Facade', qty:1},
-          {name:'DJ Dev / MC RND', qty:1},
-        ]},
-        { name:'LED Wall — Facade', qty:1, price:'1000', comp:false, details:[
-          {name:'LED Panels — Facade', qty:1}, {name:'Technician', qty:1},
-        ]},
-        { name:'Special FX', qty:1, price:'500', comp:false, details:[
-          {name:'CO2 Cannon', qty:1},
-        ]},
-        { name:'Cocktail Setup', qty:1, price:'', comp:true, details:[
-          {name:'Cocktail Speaker', qty:1},
-        ]},
-      ]},
-      { name:'Travel + Labor', items:[
-        { name:'Travel + Labor', qty:1, price:'500', comp:false, details:[] },
-      ]},
-    ];
-    events.forEach(e => { e.id = eventIdCounter++; state.events.push(e); });
-
-    const discounts = [
-      {name:'Friends + Family', amount:'1250'},
-      {name:'Multiple Day', amount:'350'},
-      {name:'Special Effects', amount:'250'},
-    ];
-    discounts.forEach(d => { d.id = discountIdCounter++; state.discounts.push(d); });
-
-    readState();
-    renderSidebar();
-    render();
-  }
-})();
-
 // ─── EXPENSES ─────────────────────────────────────────────────────────────────
 let expenses = [];
 let expIdCounter = 0;
 const EXP_CATS = ['Transportation','Equipment','Labor','Supplies','Venue','Other'];
 
-function newExpense() { return { id: expIdCounter++, name: '', category: 'Other', amount: '' }; }
-
-function addExpense() { expenses.push(newExpense()); renderExpSidebar(); renderExpSummary(); }
+function addExpense() { expenses.push({ id: expIdCounter++, name: '', category: 'Other', amount: '' }); renderExpSidebar(); renderExpSummary(); }
 function removeExpense(id) { expenses = expenses.filter(e => e.id !== id); renderExpSidebar(); renderExpSummary(); }
 
 function readExpenses() {
@@ -1064,10 +1106,8 @@ function renderExpSidebar() {
 function renderExpSummary() {
   const el = document.getElementById('exp-summary');
   if (!el) return;
-
   const revenue = computeTotal();
   let totalExp = 0;
-
   const grouped = {};
   expenses.forEach(exp => {
     if (!exp.name && !exp.amount) return;
@@ -1076,7 +1116,6 @@ function renderExpSummary() {
     grouped[exp.category].push({ name: exp.name || '(unnamed)', amount: amt });
     totalExp += amt;
   });
-
   let rows = '';
   EXP_CATS.forEach(cat => {
     if (!grouped[cat]) return;
@@ -1086,11 +1125,9 @@ function renderExpSummary() {
       rows += `<tr class="row-exp"><td>${e.name}</td><td>${fmt(e.amount)}</td></tr>`;
     });
   });
-
   const profit = revenue - totalExp;
   const marginStr = revenue > 0 ? ` — ${((profit / revenue) * 100).toFixed(0)}% margin` : '';
   const eventLabel = (document.getElementById('exp-event-label') || {}).value || '';
-
   el.innerHTML = `
     <div class="exp-header">
       <div>
@@ -1102,14 +1139,13 @@ function renderExpSummary() {
     </div>
     <table class="exp-table">
       <thead><tr><th style="width:75%">Description</th><th>Amount</th></tr></thead>
-      <tbody>${rows || '<tr><td colspan="2" style="padding:24px 16px;color:#aaa;text-align:center;">No expenses added yet — use the sidebar to add items.</td></tr>'}</tbody>
+      <tbody>${rows || '<tr><td colspan="2" style="padding:24px 16px;color:#aaa;text-align:center;">No expenses added yet.</td></tr>'}</tbody>
     </table>
     <div>
       <div class="exp-bottom-row row-total-exp"><span>Total Expenses</span><span>${fmt(totalExp)}</span></div>
       <div class="exp-bottom-row row-revenue"><span>Invoice Revenue</span><span>${fmt(revenue)}</span></div>
       <div class="exp-bottom-row ${profit >= 0 ? 'row-profit' : 'row-loss'}">
-        <span>${profit >= 0 ? 'Net Profit' : 'Net Loss'}${marginStr}</span>
-        <span>${fmt(Math.abs(profit))}</span>
+        <span>${profit >= 0 ? 'Net Profit' : 'Net Loss'}${marginStr}</span><span>${fmt(Math.abs(profit))}</span>
       </div>
     </div>
   `;
@@ -1123,14 +1159,42 @@ function onExpChange() {
 
 function switchMode(mode) {
   const inv = mode === 'invoice';
-  const invSec = document.getElementById('invoice-sections');
-  const expSec = document.getElementById('expense-sections');
-  invSec.style.display = inv ? 'contents' : 'none';
-  expSec.style.display = inv ? 'none' : 'flex';
+  document.getElementById('invoice-sections').style.display = inv ? 'contents' : 'none';
+  document.getElementById('expense-sections').style.display = inv ? 'none' : 'flex';
   document.getElementById('invoice').style.display = inv ? '' : 'none';
   document.getElementById('exp-summary').style.display = inv ? 'none' : '';
   if (!inv) renderExpSummary();
 }
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+(function init() {
+  document.getElementById('inv-issued').value = todayFormatted();
+
+  if (!loadData()) {
+    // Seed with sample data
+    document.getElementById('inv-num').value    = '1016';
+    document.getElementById('inv-issued').value = 'April 21st, 2026';
+    document.getElementById('inv-due').value    = 'May 25th, 2026';
+    document.getElementById('bill-to').value    = 'N/A';
+
+    const events = [
+      { name:'Mehndi', items:[{ name:'Sound Package', qty:1, price:'950', comp:false, details:[{name:'RCF 945',qty:2},{name:'Wireless Microphone',qty:2},{name:'Facade',qty:2},{name:'DJ Dev / MC RND',qty:1}]}]},
+      { name:'Sangeet (350 People)', items:[{ name:'Sound Package', qty:1, price:'1600', comp:false, details:[{name:'RCF 945',qty:2},{name:'RCF SUB 708',qty:2},{name:'Wireless Microphone',qty:2},{name:'Facade',qty:1},{name:'DJ Dev / MC RND',qty:1}]},{ name:'LED Dandiya Sticks', qty:1, price:'', comp:false, details:[]}]},
+      { name:'Baraat', items:[{ name:'Baraat Package', qty:1, price:'500', comp:false, details:[{name:'RCF 945',qty:2},{name:'DJ Dev / MC RND',qty:1},{name:'Wireless Microphone',qty:1},{name:'Mobile Baraat Vehicle',qty:1}]}]},
+      { name:'Ceremony Package', items:[{ name:'Ceremony Sound', qty:1, price:'800', comp:false, details:[{name:'Basic Sound Package',qty:1},{name:'Wireless Microphone',qty:2},{name:'Lapel Microphone',qty:1},{name:'Facade',qty:2},{name:'Additional Technician',qty:1},{name:'Lunch Time Speaker',qty:1}]}]},
+      { name:'Reception (400 People)', items:[{ name:'Upgraded Sound Package', qty:1, price:'2500', comp:false, details:[{name:'RCF 945',qty:4},{name:'RCF SUB 708',qty:2},{name:'Wireless Microphone',qty:2},{name:'Facade',qty:1},{name:'DJ Dev / MC RND',qty:1}]},{ name:'LED Wall — Facade', qty:1, price:'1000', comp:false, details:[{name:'LED Panels — Facade',qty:1},{name:'Technician',qty:1}]},{ name:'Special FX', qty:1, price:'500', comp:false, details:[{name:'CO2 Cannon',qty:1}]},{ name:'Cocktail Setup', qty:1, price:'', comp:true, details:[{name:'Cocktail Speaker',qty:1}]}]},
+      { name:'Travel + Labor', items:[{ name:'Travel + Labor', qty:1, price:'500', comp:false, details:[]}]},
+    ];
+    events.forEach(e => { e.id = eventIdCounter++; state.events.push(e); });
+
+    const discounts = [{name:'Friends + Family',amount:'1250'},{name:'Multiple Day',amount:'350'},{name:'Special Effects',amount:'250'}];
+    discounts.forEach(d => { d.id = discountIdCounter++; state.discounts.push(d); });
+
+    readState();
+    renderSidebar();
+    render();
+  }
+})();
 </script>
 </body>
 </html>
